@@ -1,0 +1,113 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>TRINUS — Contábil & Assessoria Empresarial</title>
+
+    <style>
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            background: #f5f6f8;
+            color: #222;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /*
+        Imagen de fondo
+        */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+
+            background-image: url("{% static 'core/img/logo.png' %}");
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 550px;
+
+            opacity: 0.1;
+
+            z-index: -1;
+        }
+
+        .container {
+            min-height: 100vh;
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 60px;
+            letter-spacing: 5px;
+            color: #27313a;
+        }
+
+        p {
+            font-size: 22px;
+            color: #555;
+            margin-top: 10px;
+        }
+
+        .admin-link {
+            margin-top: 30px;
+
+            padding: 12px 25px;
+
+            background: #27313a;
+            color: white;
+
+            text-decoration: none;
+
+            border-radius: 6px;
+
+            transition: 0.2s;
+        }
+
+        .admin-link:hover {
+            opacity: 0.85;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <main class="container">
+
+        <h1>TRINUS</h1>
+
+        <p>Contábil & Assessoria Empresarial</p>
+
+        <a class="admin-link" href="/admin/">
+            Administração
+        </a>
+        <a class="admin-link" href="{% url 'painel_dashboard' %}">
+            Painel de Controle
+        </a>
+
+    </main>
+
+</body>
+
+</html>

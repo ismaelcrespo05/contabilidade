@@ -1,0 +1,45 @@
+{% extends "core/panel_base.html" %}
+
+{% block title %}Competências — {{ empresa.razao_social }}{% endblock %}
+
+{% block content %}
+
+    <div class="top-bar">
+        <div>
+            <h1 style="margin:0;">Competências</h1>
+            <p style="color:#777; font-size:14px;">{{ empresa.razao_social }}</p>
+        </div>
+        <a class="btn btn-primary" href="{% url 'nova_competencia' empresa_pk=empresa.pk %}">+ Nova Competência</a>
+    </div>
+
+    <div class="card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Mês/Ano</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for competencia in competencias %}
+                    <tr>
+                        <td>{{ competencia.mes|stringformat:"02d" }}/{{ competencia.ano }}</td>
+                        <td class="acoes">
+                            <a class="btn btn-secondary btn-sm"
+                               href="{% url 'competencia_detail' pk=competencia.pk %}">Ver apurações</a>
+                            <a class="btn btn-danger btn-sm"
+                               href="{% url 'excluir_competencia' pk=competencia.pk %}">Excluir</a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="2">Nenhuma competência cadastrada ainda.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div style="margin-top:18px;">
+        <a href="{% url 'empresa_list' %}" class="btn btn-secondary btn-sm">← Voltar para Empresas</a>
+    </div>
+
+{% endblock %}

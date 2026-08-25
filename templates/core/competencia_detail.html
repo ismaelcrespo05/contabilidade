@@ -1,0 +1,115 @@
+{% extends "core/panel_base.html" %}
+
+{% block title %}Apurações — {{ competencia }}{% endblock %}
+
+{% block content %}
+
+    <div class="top-bar">
+        <div>
+            <h1 style="margin:0;">{{ competencia }}</h1>
+            <p style="color:#777; font-size:14px;">{{ competencia.empresa.razao_social }}</p>
+        </div>
+    </div>
+
+    <div class="card" style="margin-bottom:24px;">
+        <h3 style="margin-bottom:14px;">Rotinas fiscais (obrigações acessórias)</h3>
+
+        {% if cumprimentos %}
+            <form method="POST">
+                {% csrf_token %}
+
+                {% for cumprimento in cumprimentos %}
+                    <div style="display:flex; align-items:center; gap:14px; padding:10px 0; border-bottom:1px solid #f0f0f0; flex-wrap:wrap;">
+
+                        <label style="display:flex; align-items:center; gap:8px; margin:0;">
+                            <input type="checkbox" name="concluido_{{ cumprimento.id }}"
+                                   {% if cumprimento.cumprido %}checked{% endif %}
+                                   style="width:auto; accent-color:#27313a;">
+                            <span>{{ cumprimento.obrigacao.nome }}</span>
+                        </label>
+
+                        <span class="status-pill status-semaforo-{{ cumprimento.status_calculado }}" style="margin-left:auto;">
+                            {{ cumprimento.status_calculado_display }}
+                        </span>
+
+                        <select name="status_manual_{{ cumprimento.id }}" style="padding:6px 10px; border:1px solid #ccc; border-radius:6px; font-size:13px;">
+                            <option value="" {% if not cumprimento.status_manual %}selected{% endif %}>Automático</option>
+                            <option value="3" {% if cumprimento.status_manual == 3 %}selected{% endif %}>Forçar: Em dia</option>
+                            <option value="2" {% if cumprimento.status_manual == 2 %}selected{% endif %}>Forçar: Risco</option>
+                            <option value="1" {% if cumprimento.status_manual == 1 %}selected{% endif %}>Forçar: Atrasada</option>
+                        </select>
+
+                        {% if cumprimento.cumprido and cumprimento.data_cumprimento %}
+                            <span style="font-size:12px; color:#1e6b3a;">
+                                cumprida em {{ cumprimento.data_cumprimento|date:"d/m/Y" }}
+                            </span>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+
+                <button type="submit" class="btn btn-primary" style="margin-top:16px;">Salvar rotinas</button>
+            </form>
+
+            <style>
+                .status-semaforo-3 { background: #e6f4ea; color: #1e6b3a; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+                .status-semaforo-2 { background: #fff3cd; color: #8a6500; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+                .status-semaforo-1 { background: #fde2e2; color: #b00020; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+            </style>
+        {% else %}
+            <p style="color:#777; font-size:14px;">
+                Esta empresa não tem obrigações acessórias vinculadas
+                (edite a empresa e selecione ao menos uma).
+            </p>
+        {% endif %}
+    </div>
+
+    <div class="top-bar">
+        <h3 style="margin:0;">Apurações de Imposto</h3>
+        <a class="btn btn-primary" href="{% url 'nova_apuracao' competencia_pk=competencia.pk %}">+ Nova Apuração</a>
+    </div>
+
+    <div class="card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Imposto</th>
+                    <th>Valor</th>
+                    <th>Vencimento</th>
+                    <th>Status</th>
+                    <th>Pagamento</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for apuracao in apuracoes %}
+                    <tr>
+                        <td>{{ apuracao.imposto }}</td>
+                        <td>{% if apuracao.valor %}R$ {{ apuracao.valor }}{% else %}—{% endif %}</td>
+                        <td>{{ apuracao.data_vencimento|default:"—" }}</td>
+                        <td>
+                            <span class="status-pill status-{{ apuracao.status }}">
+                                {{ apuracao.get_status_display }}
+                            </span>
+                        </td>
+                        <td>{{ apuracao.data_pagamento|default:"—" }}</td>
+                        <td class="acoes">
+                            <a class="btn btn-secondary btn-sm"
+                               href="{% url 'editar_apuracao' pk=apuracao.pk %}">Editar</a>
+                            <a class="btn btn-danger btn-sm"
+                               href="{% url 'excluir_apuracao' pk=apuracao.pk %}">Excluir</a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="6">Nenhuma apuração registrada ainda.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div style="margin-top:18px;">
+        <a href="{% url 'competencia_list' empresa_pk=competencia.empresa_id %}" class="btn btn-secondary btn-sm">
+            ← Voltar para Competências
+        </a>
+    </div>
+
+{% endblock %}

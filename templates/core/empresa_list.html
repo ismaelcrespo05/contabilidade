@@ -1,0 +1,70 @@
+{% extends "core/panel_base.html" %}
+
+{% block title %}Empresas{% endblock %}
+
+{% block content %}
+
+    <div class="top-bar">
+        <h1 style="margin:0;">Empresas</h1>
+        <div class="acoes">
+            <a class="btn btn-secondary" href="{% url 'exportar_excel' %}">Exportar Excel</a>
+            <a class="btn btn-primary" href="{% url 'nova_empresa' %}">+ Nova Empresa</a>
+        </div>
+    </div>
+
+    <div class="card">
+
+        <form method="get" class="busca" style="margin-bottom:18px;">
+            <input type="text" name="q" placeholder="Buscar por razão social..."
+                   value="{{ request.GET.q }}">
+        </form>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Razão Social</th>
+                    <th>CNPJ</th>
+                    <th>Tipo</th>
+                    <th>Regime</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for empresa in empresas %}
+                    <tr>
+                        <td>{{ empresa.razao_social }}</td>
+                        <td>{{ empresa.cnpj }}</td>
+                        <td>{{ empresa.tipo_empresa }}</td>
+                        <td>{{ empresa.regime_tributario }}</td>
+                        <td class="acoes">
+                            <a class="btn btn-secondary btn-sm"
+                               href="{% url 'competencia_list' empresa_pk=empresa.pk %}">Competências</a>
+                            <a class="btn btn-secondary btn-sm"
+                               href="{% url 'editar_empresa' pk=empresa.pk %}">Editar</a>
+                            <a class="btn btn-danger btn-sm"
+                               href="{% url 'excluir_empresa' pk=empresa.pk %}">Excluir</a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5">Nenhuma empresa cadastrada ainda.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% if is_paginated %}
+            <div class="acoes" style="margin-top:18px;">
+                {% if page_obj.has_previous %}
+                    <a class="btn btn-secondary btn-sm" href="?page={{ page_obj.previous_page_number }}">Anterior</a>
+                {% endif %}
+                <span style="align-self:center; font-size:13px; color:#777;">
+                    Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                </span>
+                {% if page_obj.has_next %}
+                    <a class="btn btn-secondary btn-sm" href="?page={{ page_obj.next_page_number }}">Próxima</a>
+                {% endif %}
+            </div>
+        {% endif %}
+
+    </div>
+
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "core/panel_base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+
+    <h1>Dashboard</h1>
+
+    <div style="display:flex; gap:20px; margin-bottom:30px; flex-wrap:wrap;">
+
+        <div class="card" style="flex:1; min-width:200px;">
+            <div style="font-size:13px; color:#777;">Empresas cadastradas</div>
+            <div style="font-size:32px; font-weight:bold; color:#27313a;">{{ total_empresas }}</div>
+        </div>
+
+        <div class="card" style="flex:1; min-width:200px;">
+            <div style="font-size:13px; color:#777;">Impostos cadastrados</div>
+            <div style="font-size:32px; font-weight:bold; color:#27313a;">{{ total_impostos }}</div>
+        </div>
+
+        <div class="card" style="flex:1; min-width:200px;">
+            <div style="font-size:13px; color:#777;">Apurações pendentes/atrasadas</div>
+            <div style="font-size:32px; font-weight:bold; color:#b00020;">{{ apuracoes_pendentes }}</div>
+        </div>
+
+    </div>
+
+    <div class="card">
+        <h3 style="margin-bottom:14px;">Atalhos</h3>
+        <div class="acoes" style="flex-wrap:wrap;">
+            <a class="btn btn-primary" href="{% url 'nova_empresa' %}">+ Nova Empresa</a>
+            {% for c in catalogos %}
+                <a class="btn btn-secondary" href="{% url 'catalogo_list' slug=c.slug %}">{{ c.titulo }}</a>
+            {% endfor %}
+        </div>
+    </div>
+
+{% endblock %}

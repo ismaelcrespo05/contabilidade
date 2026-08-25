@@ -1,0 +1,43 @@
+{% extends "core/panel_base.html" %}
+{% load core_extras %}
+
+{% block title %}{{ conf.titulo }}{% endblock %}
+
+{% block content %}
+
+    <div class="top-bar">
+        <h1 style="margin:0;">{{ conf.titulo }}</h1>
+        <a class="btn btn-primary" href="{% url 'catalogo_novo' slug=slug %}">+ Novo</a>
+    </div>
+
+    <div class="card">
+        <table>
+            <thead>
+                <tr>
+                    {% for campo, rotulo in conf.columns %}
+                        <th>{{ rotulo }}</th>
+                    {% endfor %}
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in itens %}
+                    <tr>
+                        {% for campo, rotulo in conf.columns %}
+                            <td>{{ item|getattribute:campo }}</td>
+                        {% endfor %}
+                        <td class="acoes">
+                            <a class="btn btn-secondary btn-sm"
+                               href="{% url 'catalogo_editar' slug=slug pk=item.pk %}">Editar</a>
+                            <a class="btn btn-danger btn-sm"
+                               href="{% url 'catalogo_excluir' slug=slug pk=item.pk %}">Excluir</a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="{{ conf.columns|length|add:1 }}">Nenhum registro ainda.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+{% endblock %}

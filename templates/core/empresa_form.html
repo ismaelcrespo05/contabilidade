@@ -1,0 +1,107 @@
+{% extends "core/panel_base.html" %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+
+    <h1>{{ titulo }}</h1>
+
+    <div class="card" style="max-width:750px;">
+
+        <form method="POST">
+            {% csrf_token %}
+
+            {% for field in form %}
+
+                {% if field.name == "impostos" or field.name == "obrigacoes_acessorias" %}
+
+                    <div class="campo">
+                        <label>{{ field.label }}</label>
+
+                        <div class="checkbox-grid">
+                            {% for choice in field %}
+                                <label class="checkbox-item">
+                                    {{ choice.tag }}
+                                    <span>{{ choice.choice_label }}</span>
+                                </label>
+                            {% empty %}
+                                <span style="font-size:13px; color:#777;">
+                                    Nenhuma opção cadastrada ainda.
+                                </span>
+                            {% endfor %}
+                        </div>
+
+                        {% if field.errors %}
+                            <div class="errores">{{ field.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                {% else %}
+
+                    <div class="campo">
+                        {{ field.label_tag }}
+                        {{ field }}
+
+                        {% if field.help_text %}
+                            <span class="helptext">{{ field.help_text }}</span>
+                        {% endif %}
+
+                        {% if field.errors %}
+                            <div class="errores">{{ field.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                {% endif %}
+
+            {% endfor %}
+
+            <div class="botoes">
+                <button type="submit" class="btn btn-primary">Salvar empresa</button>
+                <a href="{% url 'empresa_list' %}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+
+    </div>
+
+    <style>
+        .campo { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 7px; font-weight: bold; }
+
+        input[type="text"], select, input:not([type="checkbox"]) {
+            width: 100%;
+            padding: 11px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 15px;
+        }
+
+        .helptext { display: block; margin-top: 5px; font-size: 13px; color: #777; }
+        .errores { color: #b00020; margin-top: 5px; font-size: 14px; }
+        .botoes { display: flex; gap: 10px; margin-top: 30px; }
+
+        .checkbox-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            background: #fafafa;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: normal;
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            width: auto;
+            accent-color: #27313a;
+        }
+    </style>
+
+{% endblock %}

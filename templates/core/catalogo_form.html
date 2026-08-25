@@ -1,0 +1,42 @@
+{% extends "core/panel_base.html" %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+
+    <h1>{{ titulo }}</h1>
+
+    <div class="card" style="max-width:600px;">
+        <form method="POST">
+            {% csrf_token %}
+
+            {% for field in form %}
+                <div class="campo">
+                    {{ field.label_tag }}
+                    {{ field }}
+
+                    {% if field.errors %}
+                        <div class="errores">{{ field.errors }}</div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+
+            <div class="botoes">
+                <button type="submit" class="btn btn-primary">Salvar</button>
+                <a href="{% url 'catalogo_list' slug=slug %}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+
+    <style>
+        .campo { margin-bottom: 18px; }
+        label { display: block; margin-bottom: 7px; font-weight: bold; }
+        input, textarea, select {
+            width: 100%; padding: 10px; border: 1px solid #ccc;
+            border-radius: 6px; font-size: 15px;
+        }
+        .errores { color: #b00020; margin-top: 5px; font-size: 14px; }
+        .botoes { display: flex; gap: 10px; margin-top: 25px; }
+    </style>
+
+{% endblock %}
