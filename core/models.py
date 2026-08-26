@@ -195,6 +195,14 @@ class CumprimentoObrigacao(models.Model):
     cumprido = models.BooleanField(default=False)
     data_cumprimento = models.DateField(null=True, blank=True)
 
+    # PDF do recibo de entrega (ex: recibo de EFD/SPED) que comprova
+    # o cumprimento dessa obrigação nesse mês.
+    comprovante = models.FileField(
+        upload_to="comprovantes/%Y/%m/",
+        null=True,
+        blank=True
+    )
+    
     # Se preenchido, este valor manda e o semáforo automático é ignorado.
     status_manual = models.PositiveSmallIntegerField(
         choices=STATUS_CHOICES,
@@ -252,3 +260,85 @@ class CumprimentoObrigacao(models.Model):
     def status_calculado_display(self):
         valores = dict(self.STATUS_CHOICES)
         return valores.get(self.status_calculado(), "")
+
+class Documento(models.Model):
+    """
+    Documento fiscal genérico (nota fiscal, recibo, boleto, etc.). Existe
+    independente de uma Empresa cadastrada — pode ficar "solto" (RF-16)
+    até que o usuário decida associá-lo a uma empresa já cadastrada ou
+    cadastrar uma nova a partir dos dados extraídos (RF-13/RF-14).
+    """
+
+    TIPO_NFE = "NFE"
+    TIPO_RECIBO_OBRIGACAO = "RECIBO_OBRIGACAO"
+    TIPO_BOLETO = "BOLETO"
+    TIPO_OUTRO = "OUTRO"
+
+    TIPO_CHOICES = [
+        (TIPO_NFE, "Nota Fiscal"),
+        (TIPO_RECIBO_OBRIGACAO, "Recibo de Obrigação Acessória"),
+        (TIPO_BOLETO, "Boleto"),
+        (TIPO_OUTRO, "Outro"),
+    ]
+
+    arquivo = models.FileField(upload_to="documentos/%Y/%m/")
+
+    tipo_documento = models.CharField(
+        max_length=20,
+        choices=TIPO_CHOICES,
+        default=TIPO_OUTRO
+    )
+
+    # Empresa administrada à qual esse documento foi associado. Pode ficar
+    # em branco (RF-05, RF-14, RF-16): nem todo documento precisa estar
+    # ligado a uma empresa cadastrada.
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="documentos"
+    )
+
+    # Dados extraídos automaticamente do PDF (RF-08). Tudo aqui pode ser
+    # corrigido manualmente na revisão (RF-21) — por isso são campos
+    # normais, editáveis, e não só um JSON fixo.
+    cnpj_emitente = models.CharField(max_length=18, blank=True)
+    razao_social_emitente = models.CharField(max_length=200, blank=True)
+    cnpj_destinatario = models.CharField(max_length=18, blank=True)
+
+    numero_documento = models.CharField(max_length=50, blank=True)
+    data_emissao = models.DateField(null=True, blank=True)
+    valor_total = models.DecimalField(
+        max_digits=14, decimal_places=2, null=True, blank=True
+    )
+
+    # Dados adicionais que a extração encontrar (impostos detectados,
+    # lista de CNPJs candidatos, texto bruto, etc.) — guardados à parte
+    # para não precisar de uma coluna nova cada vez que a extração melhora.
+    dados_extraidos = models.JSONField(default=dict, blank=True)
+
+    revisado = models.BooleanField(
+        default=False,
+        help_text="Marca se o usuário já conferiu/corrigiu os dados extraídos."
+    )
+
+    data_upload = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def papel_empresa(self):
+        """
+        Não guardamos o papel (emitente/destinatário) como campo à parte
+        para não arriscar ficar desatualizado — comparamos o CNPJ da
+        empresa vinculada com os CNPJs extraídos do documento (RF-09).
+        """
+        if not self.empresa:
+            return None
+        if self.empresa.cnpj == self.cnpj_emitente:
+            return "Emitente"
+        if self.empresa.cnpj == self.cnpj_destinatario:
+            return "Destinatário"
+        return "Não identificado"
+
+    def __str__(self):
+        return self.numero_documento or f"Documento #{self.pk}"    

@@ -1,0 +1,99 @@
+{% extends "core/panel_base.html" %}
+
+{% block title %}Revisar Documento{% endblock %}
+
+{% block content %}
+
+    <h1>Revisar Documento</h1>
+
+    <div class="card" style="max-width:700px; margin-bottom:20px;">
+        <h3 style="margin-bottom:14px;">Empresas encontradas no documento</h3>
+
+        <div style="display:flex; gap:16px; flex-wrap:wrap;">
+
+            <div style="flex:1; min-width:260px; background:#f5f6f8; border-radius:8px; padding:14px;">
+                <div style="font-size:12px; color:#777; text-transform:uppercase; margin-bottom:6px;">Emitente</div>
+                <div><strong>{{ documento.cnpj_emitente|default:"—" }}</strong></div>
+                <div style="font-size:14px; margin-bottom:10px;">{{ documento.razao_social_emitente|default:"—" }}</div>
+
+                {% if empresa_emitente %}
+                    <span class="status-pill status-PAGO">Empresa cadastrada</span>
+                {% elif documento.cnpj_emitente %}
+                    <span class="status-pill status-PENDENTE">Empresa não cadastrada</span>
+                    <a class="btn btn-secondary btn-sm" style="margin-top:8px; display:inline-block;"
+                       href="{% url 'nova_empresa' %}?documento_id={{ documento.pk }}&cnpj={{ documento.cnpj_emitente|urlencode }}&razao_social={{ documento.razao_social_emitente|urlencode }}">
+                        Cadastrar empresa
+                    </a>
+                {% endif %}
+            </div>
+
+            <div style="flex:1; min-width:260px; background:#f5f6f8; border-radius:8px; padding:14px;">
+                <div style="font-size:12px; color:#777; text-transform:uppercase; margin-bottom:6px;">Destinatário</div>
+                <div><strong>{{ documento.cnpj_destinatario|default:"—" }}</strong></div>
+                <div style="font-size:14px; margin-bottom:10px;">{{ razao_social_destinatario|default:"—" }}</div>
+
+                {% if empresa_destinatario %}
+                    <span class="status-pill status-PAGO">Empresa cadastrada</span>
+                {% elif documento.cnpj_destinatario %}
+                    <span class="status-pill status-PENDENTE">Empresa não cadastrada</span>
+                    <a class="btn btn-secondary btn-sm" style="margin-top:8px; display:inline-block;"
+                       href="{% url 'nova_empresa' %}?documento_id={{ documento.pk }}&cnpj={{ documento.cnpj_destinatario|urlencode }}&razao_social={{ razao_social_destinatario|urlencode }}">
+                        Cadastrar empresa
+                    </a>
+                {% endif %}
+            </div>
+
+        </div>
+    </div>
+
+    {% if impostos %}
+        <div class="card" style="max-width:700px; margin-bottom:20px;">
+            <h3 style="margin-bottom:14px;">Impostos encontrados no documento</h3>
+            <table>
+                <thead><tr><th>Imposto</th><th>Valor</th></tr></thead>
+                <tbody>
+                    {% for imposto in impostos %}
+                        <tr><td>{{ imposto.nome }}</td><td>R$ {{ imposto.valor }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+
+    <div class="card" style="max-width:700px;">
+        <h3 style="margin-bottom:14px;">Confirmar dados do documento</h3>
+
+        <form method="POST">
+            {% csrf_token %}
+
+            {% for field in form %}
+                <div class="campo">
+                    {{ field.label_tag }}
+                    {{ field }}
+                    {% if field.errors %}
+                        <div class="errores">{{ field.errors }}</div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+
+            <div class="botoes">
+                <button type="submit" class="btn btn-primary">Salvar revisão</button>
+                <button type="submit" name="apenas_analisar" value="1" class="btn btn-secondary">
+                    Apenas analisar (não vincular empresa)
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <style>
+        .campo { margin-bottom: 18px; }
+        label { display: block; margin-bottom: 7px; font-weight: bold; }
+        input, select {
+            width: 100%; padding: 10px; border: 1px solid #ccc;
+            border-radius: 6px; font-size: 15px;
+        }
+        .errores { color: #b00020; margin-top: 5px; font-size: 14px; }
+        .botoes { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+    </style>
+
+{% endblock %}

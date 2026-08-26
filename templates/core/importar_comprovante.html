@@ -1,0 +1,40 @@
+{% extends "core/panel_base.html" %}
+
+{% block title %}Importar Comprovante{% endblock %}
+
+{% block content %}
+
+    <h1>Importar Comprovante (PDF)</h1>
+
+    <div class="card" style="max-width:550px;">
+        <p style="color:#777; font-size:14px; margin-bottom:20px;">
+            Suba o PDF do recibo de entrega (SPED, EFD, etc.). O sistema vai ler
+            automaticamente o CNPJ e o período, e na próxima tela você escolhe
+            a qual obrigação ele corresponde.
+        </p>
+
+        <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <div class="campo">
+                <label for="arquivo">Arquivo PDF</label>
+                <input type="file" name="arquivo" id="arquivo" accept="application/pdf" required>
+            </div>
+
+            <div class="botoes">
+                <button type="submit" class="btn btn-primary">Enviar e ler PDF</button>
+            </div>
+        </form>
+    </div>
+
+    <style>
+        .campo { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 7px; font-weight: bold; }
+        input[type="file"] {
+            width: 100%; padding: 10px; border: 1px solid #ccc;
+            border-radius: 6px; font-size: 14px; background: #fafafa;
+        }
+        .botoes { margin-top: 10px; }
+    </style>
+
+{% endblock %}

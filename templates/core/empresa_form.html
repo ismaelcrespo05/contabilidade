@@ -10,6 +10,10 @@
 
         <form method="POST">
             {% csrf_token %}
+            
+            {% if documento_id %}
+    <       input type="hidden" name="documento_id" value="{{ documento_id }}">
+            {% endif %}
 
             {% for field in form %}
 

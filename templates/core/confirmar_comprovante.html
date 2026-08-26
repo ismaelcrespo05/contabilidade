@@ -1,0 +1,58 @@
+{% extends "core/panel_base.html" %}
+
+{% block title %}Confirmar Comprovante{% endblock %}
+
+{% block content %}
+
+    <h1>Confirmar Comprovante</h1>
+
+    <div class="card" style="max-width:600px;">
+
+        <div style="background:#f5f6f8; border-radius:8px; padding:16px; margin-bottom:22px; font-size:14px;">
+            <p><strong>Empresa:</strong> {{ empresa_nome }}</p>
+            <p><strong>CNPJ lido no PDF:</strong> {{ cnpj }}</p>
+            <p><strong>Período:</strong> {{ periodo }}</p>
+            <p><strong>Competência:</strong> {{ competencia }}</p>
+        </div>
+
+        {% if cumprimentos %}
+            <form method="POST">
+                {% csrf_token %}
+
+                <div class="campo">
+                    <label for="cumprimento_id">A qual obrigação esse comprovante se refere?</label>
+                    <select name="cumprimento_id" id="cumprimento_id" required>
+                        <option value="">Selecione...</option>
+                        {% for cumprimento in cumprimentos %}
+                            <option value="{{ cumprimento.id }}">
+                                {{ cumprimento.obrigacao.nome }}
+                                {% if cumprimento.cumprido %}(já marcada como cumprida){% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="botoes">
+                    <button type="submit" class="btn btn-primary">Confirmar e baixar obrigação</button>
+                    <a href="{% url 'competencia_detail' pk=competencia.pk %}" class="btn btn-secondary">Cancelar</a>
+                </div>
+            </form>
+        {% else %}
+            <p style="color:#777; font-size:14px;">
+                Essa empresa não tem nenhuma obrigação acessória vinculada.
+            </p>
+        {% endif %}
+
+    </div>
+
+    <style>
+        .campo { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 7px; font-weight: bold; }
+        select {
+            width: 100%; padding: 10px; border: 1px solid #ccc;
+            border-radius: 6px; font-size: 15px;
+        }
+        .botoes { display: flex; gap: 10px; margin-top: 10px; }
+    </style>
+
+{% endblock %}

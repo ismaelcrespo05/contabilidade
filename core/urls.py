@@ -13,7 +13,10 @@ urlpatterns = [
 
     # Exportação para Excel
     path("painel/exportar/excel/", views.exportar_excel, name="exportar_excel"),
-
+    
+    # Cargar pdf
+    path("painel/comprovantes/importar/", views.importar_comprovante, name="importar_comprovante"),
+    path("painel/comprovantes/confirmar/", views.confirmar_comprovante, name="confirmar_comprovante"),
     # Empresas
     path("painel/empresas/", views.EmpresaListView.as_view(), name="empresa_list"),
     path("painel/empresas/nova/", views.nova_empresa, name="nova_empresa"),
@@ -36,4 +39,9 @@ urlpatterns = [
     path("painel/competencias/<int:competencia_pk>/apuracoes/nova/", views.nova_apuracao, name="nova_apuracao"),
     path("painel/apuracoes/<int:pk>/editar/", views.editar_apuracao, name="editar_apuracao"),
     path("painel/apuracoes/<int:pk>/excluir/", views.ApuracaoDeleteView.as_view(), name="excluir_apuracao"),
+    
+    # Documentos
+    path("painel/documentos/", views.documento_list, name="documento_list"),
+    path("painel/documentos/novo/", views.novo_documento, name="novo_documento"),
+    path("painel/documentos/<int:pk>/revisar/", views.revisar_documento, name="revisar_documento"),
 ]

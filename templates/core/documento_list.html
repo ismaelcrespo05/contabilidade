@@ -1,0 +1,60 @@
+{% extends "core/panel_base.html" %}
+
+{% block title %}Documentos{% endblock %}
+
+{% block content %}
+
+    <div class="top-bar">
+        <h1 style="margin:0;">Documentos</h1>
+        <a class="btn btn-primary" href="{% url 'novo_documento' %}">+ Novo Documento</a>
+    </div>
+
+    <div class="card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Número</th>
+                    <th>Emitente</th>
+                    <th>Destinatário</th>
+                    <th>Valor</th>
+                    <th>Empresa vinculada</th>
+                    <th>Revisado</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for documento in documentos %}
+                    <tr>
+                        <td>{{ documento.numero_documento|default:"—" }}</td>
+                        <td>{{ documento.cnpj_emitente|default:"—" }}</td>
+                        <td>{{ documento.cnpj_destinatario|default:"—" }}</td>
+                        <td>{% if documento.valor_total %}R$ {{ documento.valor_total }}{% else %}—{% endif %}</td>
+                        <td>
+                            {% if documento.empresa %}
+                                {{ documento.empresa.razao_social }}
+                                <span style="color:#777; font-size:12px;">({{ documento.papel_empresa }})</span>
+                            {% else %}
+                                <span style="color:#b00020;">Não vinculado</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if documento.revisado %}
+                                <span class="status-pill status-PAGO">Sim</span>
+                            {% else %}
+                                <span class="status-pill status-PENDENTE">Não</span>
+                            {% endif %}
+                        </td>
+                        <td class="acoes">
+                            <a class="btn btn-secondary btn-sm" href="{% url 'revisar_documento' pk=documento.pk %}">
+                                Revisar
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="7">Nenhum documento importado ainda.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+{% endblock %}

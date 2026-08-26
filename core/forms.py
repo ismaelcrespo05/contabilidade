@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import Empresa, Competencia, ApuracaoImposto
+from .models import Empresa, Competencia, ApuracaoImposto, Documento
 
 
 class EmpresaForm(forms.ModelForm):
@@ -72,3 +72,29 @@ class ApuracaoImpostoForm(forms.ModelForm):
             "data_pagamento": forms.DateInput(attrs={"type": "date"}),
             "observacao": forms.Textarea(attrs={"rows": 3}),
         }
+        
+class DocumentoForm(forms.ModelForm):
+    """
+    Formulário de revisão (RF-21): os dados aqui vêm pré-preenchidos pela
+    extração automática, mas o usuário pode corrigir qualquer campo antes
+    de confirmar.
+    """
+
+    class Meta:
+        model = Documento
+
+        fields = [
+            "tipo_documento",
+            "empresa",
+            "cnpj_emitente",
+            "razao_social_emitente",
+            "cnpj_destinatario",
+            "numero_documento",
+            "data_emissao",
+            "valor_total",
+        ]
+
+        widgets = {
+            "data_emissao": forms.DateInput(attrs={"type": "date"}),
+            "valor_total": forms.NumberInput(attrs={"step": "0.01"}),
+        }        
