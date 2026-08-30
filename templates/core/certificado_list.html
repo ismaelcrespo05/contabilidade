@@ -1,0 +1,70 @@
+{% extends "core/panel_base.html" %}
+{% load core_extras %}
+
+{% block title %}Certificados{% endblock %}
+
+{% block content %}
+
+    <div class="top-bar">
+        <h1 style="margin:0;">Certificados</h1>
+        <div class="acoes">
+            <a class="btn btn-secondary" href="{% url 'exportar_certificados_excel' %}">Exportar Excel</a>
+            {% if request.user|pode_editar %}
+                <a class="btn btn-secondary" href="{% url 'importar_certificados_excel' %}">Importar Excel</a>
+                <a class="btn btn-secondary" href="{% url 'certificados_lote' %}">Carga rápida (várias linhas)</a>
+                <a class="btn btn-primary" href="{% url 'novo_certificado' %}">+ Novo Certificado</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Certificado</th>
+                    <th>Vencimento</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for certificado in certificados %}
+                    <tr>
+                        <td>
+                            {{ certificado.nome_empresa }}
+                            {% if certificado.empresa %}
+                                <span style="font-size:11px; color:#777;">(vinculado)</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ certificado.nome }}</td>
+                        <td>{{ certificado.data_vencimento|date:"d/m/Y"|default:"—" }}</td>
+                        <td>
+                            <span class="status-pill status-semaforo-{{ certificado.status_calculado }}">
+                                {{ certificado.status_calculado_display }}
+                            </span>
+                        </td>
+                        <td class="acoes">
+                            {% if request.user|pode_editar %}
+                                <a class="btn btn-secondary btn-sm" href="{% url 'editar_certificado' pk=certificado.pk %}">Editar</a>
+                            {% endif %}
+                            {% if request.user|pode_excluir %}
+                                <a class="btn btn-danger btn-sm" href="{% url 'excluir_certificado' pk=certificado.pk %}">Excluir</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5">Nenhum certificado cadastrado ainda.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <style>
+        .status-semaforo-3 { background: #e6f4ea; color: #1e6b3a; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .status-semaforo-2 { background: #fff3cd; color: #8a6500; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .status-semaforo-1 { background: #fde2e2; color: #b00020; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .status-semaforo-0 { background: #eee; color: #666; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+    </style>
+
+{% endblock %}

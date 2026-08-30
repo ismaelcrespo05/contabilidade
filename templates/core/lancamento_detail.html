@@ -1,0 +1,65 @@
+{% extends "core/panel_base.html" %}
+{% load core_extras %}
+
+{% block title %}Lançamento{% endblock %}
+
+{% block content %}
+
+    <div class="top-bar">
+        <h1 style="margin:0;">Lançamento Contábil</h1>
+        {% if lancamento.status == "CONFIRMADO" %}
+            <span class="status-pill status-PAGO">Confirmado</span>
+        {% else %}
+            <span class="status-pill status-PENDENTE">Rascunho</span>
+        {% endif %}
+    </div>
+
+    <div class="card" style="max-width:600px;">
+        <p><strong>Empresa:</strong> {{ lancamento.empresa.razao_social }}</p>
+        <p><strong>Data do lançamento:</strong> {{ lancamento.data_lancamento|date:"d/m/Y" }}</p>
+        <p><strong>Histórico:</strong> {{ lancamento.historico }}</p>
+        <p><strong>Conta débito:</strong> {{ lancamento.conta_debito|default:"—" }}</p>
+        <p><strong>Conta crédito:</strong> {{ lancamento.conta_credito|default:"—" }}</p>
+        <p><strong>Valor:</strong> R$ {{ lancamento.valor }}</p>
+
+        {% if lancamento.documento %}
+            <p><strong>Documento de origem:</strong>
+                <a href="{% url 'revisar_documento' pk=lancamento.documento.pk %}">
+                    {{ lancamento.documento }}
+                </a>
+            </p>
+        {% endif %}
+
+        {% if lancamento.status == "CONFIRMADO" %}
+            <p style="color:#777; font-size:13px; margin-top:14px;">
+                Confirmado em {{ lancamento.data_confirmacao|date:"d/m/Y H:i" }} — não pode mais ser alterado.
+            </p>
+        {% endif %}
+
+        {% if lancamento.status == "RASCUNHO" %}
+            <div class="botoes" style="margin-top:20px;">
+                {% if request.user|pode_editar %}
+                    <a class="btn btn-secondary" href="{% url 'editar_lancamento' pk=lancamento.pk %}">Editar</a>
+
+                    <form method="POST" action="{% url 'confirmar_lancamento' pk=lancamento.pk %}" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-primary">Confirmar lançamento</button>
+                    </form>
+                {% endif %}
+
+                {% if request.user|pode_excluir %}
+                    <a class="btn btn-danger" href="{% url 'excluir_lancamento' pk=lancamento.pk %}">Excluir rascunho</a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+
+    <div style="margin-top:18px;">
+        <a href="{% url 'lancamento_list' %}" class="btn btn-secondary btn-sm">← Voltar para Lançamentos</a>
+    </div>
+
+    <style>
+        .botoes { display: flex; gap: 10px; flex-wrap: wrap; }
+    </style>
+
+{% endblock %}

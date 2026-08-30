@@ -1,0 +1,47 @@
+{% extends "core/panel_base.html" %}
+
+{% block title %}Usuários{% endblock %}
+
+{% block content %}
+
+    <div class="top-bar">
+        <h1 style="margin:0;">Usuários</h1>
+        <a class="btn btn-primary" href="{% url 'novo_usuario' %}">+ Novo Usuário</a>
+    </div>
+
+    <div class="card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Usuário</th>
+                    <th>E-mail</th>
+                    <th>Papel</th>
+                    <th>Ativo</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for usuario in usuarios %}
+                    <tr>
+                        <td>{{ usuario.username }}</td>
+                        <td>{{ usuario.email|default:"—" }}</td>
+                        <td>{{ usuario.perfil.get_papel_display|default:"—" }}</td>
+                        <td>
+                            {% if usuario.is_active %}
+                                <span class="status-pill status-PAGO">Sim</span>
+                            {% else %}
+                                <span class="status-pill status-ATRASADO">Não</span>
+                            {% endif %}
+                        </td>
+                        <td class="acoes">
+                            <a class="btn btn-secondary btn-sm" href="{% url 'editar_usuario' pk=usuario.pk %}">Editar</a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5">Nenhum usuário cadastrado ainda.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "core/panel_base.html" %}
+
+{% block title %}Importar Certificados{% endblock %}
+
+{% block content %}
+
+    <h1>Importar Certificados de um Excel</h1>
+
+    <div class="card" style="max-width:550px;">
+        <p style="color:#777; font-size:14px; margin-bottom:20px;">
+            Suba o Excel que você já usa hoje: primeira coluna com o nome,
+            segunda coluna com a data de vencimento (a primeira linha é
+            tratada como cabeçalho e ignorada). Se alguma data não puder
+            ser lida com certeza, o certificado é importado sem data —
+            para você completar depois na lista.
+        </p>
+
+        <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <div class="campo">
+                <label for="arquivo">Arquivo Excel (.xlsx)</label>
+                <input type="file" name="arquivo" id="arquivo" accept=".xlsx" required>
+            </div>
+
+            <div class="botoes">
+                <button type="submit" class="btn btn-primary">Importar</button>
+            </div>
+        </form>
+    </div>
+
+    <style>
+        .campo { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 7px; font-weight: bold; }
+        input[type="file"] {
+            width: 100%; padding: 10px; border: 1px solid #ccc;
+            border-radius: 6px; font-size: 14px; background: #fafafa;
+        }
+        .botoes { margin-top: 10px; }
+    </style>
+
+{% endblock %}

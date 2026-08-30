@@ -1,0 +1,46 @@
+{% extends "core/panel_base.html" %}
+
+{% block title %}Lançamentos Contábeis{% endblock %}
+
+{% block content %}
+
+    <h1>Lançamentos Contábeis</h1>
+
+    <div class="card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Empresa</th>
+                    <th>Histórico</th>
+                    <th>Valor</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lancamento in lancamentos %}
+                    <tr>
+                        <td>{{ lancamento.data_lancamento|date:"d/m/Y" }}</td>
+                        <td>{{ lancamento.empresa.razao_social }}</td>
+                        <td>{{ lancamento.historico }}</td>
+                        <td>R$ {{ lancamento.valor }}</td>
+                        <td>
+                            {% if lancamento.status == "CONFIRMADO" %}
+                                <span class="status-pill status-PAGO">Confirmado</span>
+                            {% else %}
+                                <span class="status-pill status-PENDENTE">Rascunho</span>
+                            {% endif %}
+                        </td>
+                        <td class="acoes">
+                            <a class="btn btn-secondary btn-sm" href="{% url 'lancamento_detail' pk=lancamento.pk %}">Ver</a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="6">Nenhum lançamento gerado ainda.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+{% endblock %}

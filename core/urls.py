@@ -44,4 +44,28 @@ urlpatterns = [
     path("painel/documentos/", views.documento_list, name="documento_list"),
     path("painel/documentos/novo/", views.novo_documento, name="novo_documento"),
     path("painel/documentos/<int:pk>/revisar/", views.revisar_documento, name="revisar_documento"),
+    
+    # Usuários
+    path("painel/usuarios/", views.usuario_list, name="usuario_list"),
+    path("painel/usuarios/novo/", views.novo_usuario, name="novo_usuario"),
+    path("painel/usuarios/<int:pk>/editar/", views.editar_usuario, name="editar_usuario"),
+    
+    # Lançamentos Contábeis
+    path("painel/lancamentos/", views.lancamento_list, name="lancamento_list"),
+    path("painel/documentos/<int:documento_pk>/gerar-lancamento/", views.gerar_lancamento, name="gerar_lancamento"),
+    path("painel/lancamentos/<int:pk>/", views.lancamento_detail, name="lancamento_detail"),
+    path("painel/lancamentos/<int:pk>/editar/", views.editar_lancamento, name="editar_lancamento"),
+    path("painel/lancamentos/<int:pk>/confirmar/", views.confirmar_lancamento, name="confirmar_lancamento"),
+    path("painel/lancamentos/<int:pk>/excluir/", views.LancamentoDeleteView.as_view(), name="excluir_lancamento"),
+    
+    # Certificados e Configurações do sistema
+    path("painel/certificados/", views.certificado_list, name="certificado_list"),
+    path("painel/certificados/novo/", views.novo_certificado, name="novo_certificado"),
+    path("painel/certificados/<int:pk>/editar/", views.editar_certificado, name="editar_certificado"),
+    path("painel/certificados/<int:pk>/excluir/", views.CertificadoDeleteView.as_view(), name="excluir_certificado"),
+    path("painel/certificados/exportar/", views.exportar_certificados_excel, name="exportar_certificados_excel"),
+    path("painel/certificados/lote/", views.certificados_lote, name="certificados_lote"),
+    path("painel/certificados/importar/", views.importar_certificados_excel, name="importar_certificados_excel"),
+    
+    path("painel/configuracoes/", views.configuracao_sistema, name="configuracao_sistema"),
 ]

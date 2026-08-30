@@ -5,12 +5,19 @@ from django.views.generic import ListView, DeleteView
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-
-from .forms import EmpresaForm, CompetenciaForm, ApuracaoImpostoForm, DocumentoForm
+from .forms import EmpresaForm, CompetenciaForm, ApuracaoImpostoForm, DocumentoForm, EditarUsuarioForm, NovoUsuarioForm, LancamentoContabilForm, CertificadoForm, CertificadoRapidoFormSet,  ConfiguracaoSistemaForm
 from .models import (
     TipoEmpresa, RegimeTributario, Imposto, CNAE, ObrigacaoAcessoria,
-    Empresa, Competencia, ApuracaoImposto, CumprimentoObrigacao, Documento
+    Empresa, Competencia, ApuracaoImposto, CumprimentoObrigacao, Documento, Fornecedor, LancamentoContabil, ConfiguracaoSistema, Certificado
+    )
+
+from django.contrib.auth.models import User
+
+from .permissoes import (
+    requer_edicao, requer_exclusao, requer_administrador,
+    RequerEdicaoMixin, RequerExclusaoMixin, pode_editar,
 )
+
 
 
 def inicio(request):
@@ -58,6 +65,11 @@ CATALOGOS = {
         "titulo_singular": "Obrigação Acessória", "fields": ["nome", "descricao", "dia_vencimento"],
         "columns": [("nome", "Nome"), ("descricao", "Descrição"), ("dia_vencimento", "Vence dia")],
     },
+        "fornecedores": {
+        "model": Fornecedor, "titulo": "Fornecedores",
+        "titulo_singular": "Fornecedor", "fields": ["cnpj", "razao_social", "nome_fantasia"],
+        "columns": [("cnpj", "CNPJ"), ("razao_social", "Razão Social"), ("nome_fantasia", "Nome Fantasia")],
+    },
 }
 
 
@@ -103,7 +115,7 @@ class EmpresaListView(LoginRequiredMixin, ListView):
         return qs
 
 
-@login_required
+@requer_edicao
 def nova_empresa(request):
     # Se vier de um Documento sem empresa cadastrada (RF-13), o CNPJ/razão
     # social extraídos chegam por querystring, e ao salvar a empresa nova
@@ -136,7 +148,7 @@ def nova_empresa(request):
         "form": form, "titulo": "Nova Empresa", "documento_id": documento_id
     })
 
-@login_required
+@requer_edicao
 def editar_empresa(request, pk):
     empresa = get_object_or_404(Empresa, pk=pk)
     if request.method == "POST":
@@ -153,7 +165,7 @@ def editar_empresa(request, pk):
     })
 
 
-class EmpresaDeleteView(LoginRequiredMixin, DeleteView):
+class EmpresaDeleteView(RequerExclusaoMixin, DeleteView):
     model = Empresa
     template_name = "core/confirm_delete.html"
     success_url = "/painel/empresas/"
@@ -175,12 +187,14 @@ def catalogo_list(request, slug):
     return render(request, "core/catalogo_list.html", {"slug": slug, "conf": conf, "itens": itens})
 
 
-@login_required
+@requer_edicao
 def catalogo_form(request, slug, pk=None):
     from django.forms import modelform_factory
 
     conf = get_catalogo_ou_404(slug)
     Form = modelform_factory(conf["model"], fields=conf["fields"])
+
+    documento_id = request.GET.get("documento_id") or request.POST.get("documento_id")
 
     instancia = None
     if pk is not None:
@@ -189,19 +203,32 @@ def catalogo_form(request, slug, pk=None):
     if request.method == "POST":
         form = Form(request.POST, instance=instancia)
         if form.is_valid():
-            form.save()
+            objeto = form.save()
             messages.success(request, "Registro salvo com sucesso.")
+
+            if documento_id and slug == "fornecedores":
+                documento = Documento.objects.filter(pk=documento_id).first()
+                if documento:
+                    documento.fornecedor = objeto
+                    documento.save()
+                    return redirect("revisar_documento", pk=documento.pk)
+
             return redirect("catalogo_list", slug=slug)
     else:
-        form = Form(instance=instancia)
+        initial = {}
+        for campo in conf["fields"]:
+            valor = request.GET.get(campo)
+            if valor:
+                initial[campo] = valor
+        form = Form(instance=instancia, initial=initial)
 
     return render(request, "core/catalogo_form.html", {
-        "form": form, "conf": conf, "slug": slug,
+        "form": form, "conf": conf, "slug": slug, "documento_id": documento_id,
         "titulo": (f"Editar {conf['titulo_singular']}" if instancia else f"Novo {conf['titulo_singular']}"),
     })
 
 
-@login_required
+@requer_exclusao
 def catalogo_delete(request, slug, pk):
     conf = get_catalogo_ou_404(slug)
     instancia = get_object_or_404(conf["model"], pk=pk)
@@ -228,7 +255,7 @@ def competencia_list(request, empresa_pk):
     return render(request, "core/competencia_list.html", {"empresa": empresa, "competencias": competencias})
 
 
-@login_required
+@requer_edicao
 def nova_competencia(request, empresa_pk):
     empresa = get_object_or_404(Empresa, pk=empresa_pk)
 
@@ -252,7 +279,7 @@ def nova_competencia(request, empresa_pk):
     return render(request, "core/competencia_form.html", {"form": form, "empresa": empresa})
 
 
-class CompetenciaDeleteView(LoginRequiredMixin, DeleteView):
+class CompetenciaDeleteView(RequerExclusaoMixin, DeleteView):
     model = Competencia
     template_name = "core/confirm_delete.html"
 
@@ -273,6 +300,9 @@ def competencia_detail(request, pk):
     cumprimentos = competencia.cumprimentos_obrigacao.select_related("obrigacao").order_by("obrigacao__nome")
 
     if request.method == "POST":
+        if not pode_editar(request.user):
+            messages.error(request, "Seu perfil (Consulta) não tem permissão para editar.")
+            return redirect("competencia_detail", pk=pk)
         from django.utils import timezone
 
         for cumprimento in cumprimentos:
@@ -311,7 +341,7 @@ def competencia_detail(request, pk):
 # ---------------------------------------------------------------------
 # Apurações de imposto
 # ---------------------------------------------------------------------
-@login_required
+@requer_edicao
 def nova_apuracao(request, competencia_pk):
     competencia = get_object_or_404(Competencia, pk=competencia_pk)
 
@@ -331,7 +361,7 @@ def nova_apuracao(request, competencia_pk):
     })
 
 
-@login_required
+@requer_edicao
 def editar_apuracao(request, pk):
     apuracao = get_object_or_404(ApuracaoImposto, pk=pk)
 
@@ -486,7 +516,7 @@ def exportar_excel(request):
     return response
 
 
-class ApuracaoDeleteView(LoginRequiredMixin, DeleteView):
+class ApuracaoDeleteView(RequerExclusaoMixin, DeleteView):
     model = ApuracaoImposto
     template_name = "core/confirm_delete.html"
 
@@ -502,7 +532,7 @@ class ApuracaoDeleteView(LoginRequiredMixin, DeleteView):
 # ---------------------------------------------------------------------
 # Importação de comprovante em PDF (recibo de entrega de SPED/EFD/etc.)
 # ---------------------------------------------------------------------
-@login_required
+@requer_edicao
 def importar_comprovante(request):
     """
     Passo 1: o usuário sobe o PDF. O sistema lê o CNPJ e o período do
@@ -574,7 +604,7 @@ def importar_comprovante(request):
     return render(request, "core/importar_comprovante.html")
 
 
-@login_required
+@requer_edicao
 def confirmar_comprovante(request):
     """
     Passo 2: mostra o que foi lido do PDF (empresa, período) e pede para
@@ -640,7 +670,7 @@ def documento_list(request):
     return render(request, "core/documento_list.html", {"documentos": documentos})
 
 
-@login_required
+@requer_edicao
 def novo_documento(request):
     """
     RF-06/RF-07: sobe o PDF. RF-08: extrai os dados automaticamente.
@@ -701,6 +731,14 @@ def novo_documento(request):
                 "Empresa não cadastrada para o(s) CNPJ(s) encontrado(s) nesse "
                 "documento. Você pode analisar sem cadastrar ou cadastrar agora."
             )
+        # RF-31: tenta identificar um Fornecedor cadastrado pelo CNPJ do
+        # emitente — em regra, quem emite uma nota para a empresa
+        # administrada é o fornecedor.
+        if documento.cnpj_emitente and documento.cnpj_emitente != getattr(documento.empresa, "cnpj", None):
+            fornecedor = Fornecedor.objects.filter(cnpj=documento.cnpj_emitente).first()
+            if fornecedor:
+                documento.fornecedor = fornecedor
+                documento.save()    
 
         return redirect("revisar_documento", pk=documento.pk)
 
@@ -716,6 +754,9 @@ def revisar_documento(request, pk):
     documento = get_object_or_404(Documento, pk=pk)
 
     if request.method == "POST":
+        if not pode_editar(request.user):
+            messages.error(request, "Seu perfil (Consulta) não tem permissão para editar.")
+            return redirect("revisar_documento", pk=pk)
         if "apenas_analisar" in request.POST:
             documento.revisado = True
             documento.save()
@@ -743,6 +784,10 @@ def revisar_documento(request, pk):
         if documento.cnpj_destinatario else None
     )
 
+    fornecedor_emitente = (
+    Fornecedor.objects.filter(cnpj=documento.cnpj_emitente).first()
+        if documento.cnpj_emitente else None
+        )
     return render(request, "core/revisar_documento.html", {
         "documento": documento,
         "form": form,
@@ -750,4 +795,353 @@ def revisar_documento(request, pk):
         "razao_social_destinatario": documento.dados_extraidos.get("razao_social_destinatario", ""),
         "empresa_emitente": empresa_emitente,
         "empresa_destinatario": empresa_destinatario,
+        "fornecedor_emitente": fornecedor_emitente,
     })       
+    
+# ---------------------------------------------------------------------
+# Gestão de usuários e papéis (RF-41, RF-42, RF-43)
+# ---------------------------------------------------------------------
+@requer_administrador
+def usuario_list(request):
+    usuarios = User.objects.select_related("perfil").order_by("username")
+    return render(request, "core/usuario_list.html", {"usuarios": usuarios})
+
+
+@requer_administrador
+def novo_usuario(request):
+    if request.method == "POST":
+        form = NovoUsuarioForm(request.POST)
+        if form.is_valid():
+            usuario = form.save()
+            usuario.perfil.papel = form.cleaned_data["papel"]
+            usuario.perfil.save()
+            messages.success(request, "Usuário criado com sucesso.")
+            return redirect("usuario_list")
+    else:
+        form = NovoUsuarioForm()
+
+    return render(request, "core/usuario_form.html", {"form": form, "titulo": "Novo Usuário"})
+
+
+@requer_administrador
+def editar_usuario(request, pk):
+    usuario = get_object_or_404(User, pk=pk)
+
+    if request.method == "POST":
+        form = EditarUsuarioForm(request.POST, instance=usuario)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Usuário atualizado com sucesso.")
+            return redirect("usuario_list")
+    else:
+        form = EditarUsuarioForm(instance=usuario)
+
+    return render(request, "core/usuario_form.html", {
+        "form": form, "titulo": f"Editar — {usuario.username}"
+    })    
+    
+# ---------------------------------------------------------------------
+# Lançamentos contábeis (RF-33 a RF-36)
+# ---------------------------------------------------------------------
+@requer_edicao
+def gerar_lancamento(request, documento_pk):
+    """
+    RF-33: gera um lançamento (em RASCUNHO) a partir dos dados já
+    extraídos/revisados do documento. Só faz sentido se o documento já
+    estiver vinculado a uma empresa administrada.
+    """
+    documento = get_object_or_404(Documento, pk=documento_pk)
+
+    if not documento.empresa:
+        messages.error(
+            request,
+            "Vincule esse documento a uma empresa cadastrada antes de gerar o lançamento."
+        )
+        return redirect("revisar_documento", pk=documento.pk)
+
+    historico = f"Documento nº {documento.numero_documento}" if documento.numero_documento else "Lançamento gerado a partir de documento"
+    if documento.fornecedor:
+        historico += f" — Fornecedor: {documento.fornecedor.razao_social}"
+
+    from django.utils import timezone
+
+    lancamento = LancamentoContabil.objects.create(
+        documento=documento,
+        empresa=documento.empresa,
+        data_lancamento=documento.data_emissao or timezone.localdate(),
+        historico=historico,
+        valor=documento.valor_total or 0,
+    )
+
+    messages.success(request, "Lançamento gerado como rascunho. Revise antes de confirmar.")
+    return redirect("editar_lancamento", pk=lancamento.pk)
+
+
+@login_required
+def lancamento_list(request):
+    """RF-36: histórico de todos os lançamentos, rascunhos e confirmados."""
+    lancamentos = LancamentoContabil.objects.select_related(
+        "empresa", "documento"
+    ).order_by("-data_criacao")
+    return render(request, "core/lancamento_list.html", {"lancamentos": lancamentos})
+
+
+@requer_edicao
+def editar_lancamento(request, pk):
+    """RF-34: revisão/correção do lançamento enquanto ele é RASCUNHO."""
+    lancamento = get_object_or_404(LancamentoContabil, pk=pk)
+
+    if lancamento.status == LancamentoContabil.STATUS_CONFIRMADO:
+        messages.info(request, "Esse lançamento já foi confirmado e não pode mais ser editado.")
+        return redirect("lancamento_detail", pk=lancamento.pk)
+
+    if request.method == "POST":
+        form = LancamentoContabilForm(request.POST, instance=lancamento)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Lançamento atualizado.")
+            return redirect("lancamento_detail", pk=lancamento.pk)
+    else:
+        form = LancamentoContabilForm(instance=lancamento)
+
+    return render(request, "core/lancamento_form.html", {
+        "form": form, "lancamento": lancamento
+    })
+
+
+@login_required
+def lancamento_detail(request, pk):
+    """
+    Mostra o lançamento. Se ainda for rascunho, oferece os botões de
+    editar e confirmar (RF-35) — se já confirmado, é só leitura (RF-36).
+    """
+    lancamento = get_object_or_404(LancamentoContabil, pk=pk)
+    return render(request, "core/lancamento_detail.html", {"lancamento": lancamento})
+
+
+@requer_edicao
+def confirmar_lancamento(request, pk):
+    """RF-35: confirma o lançamento depois da revisão. Ação irreversível."""
+    lancamento = get_object_or_404(LancamentoContabil, pk=pk)
+
+    if lancamento.status == LancamentoContabil.STATUS_RASCUNHO:
+        from django.utils import timezone
+        lancamento.status = LancamentoContabil.STATUS_CONFIRMADO
+        lancamento.data_confirmacao = timezone.now()
+        lancamento.save()
+        messages.success(request, "Lançamento confirmado com sucesso.")
+
+    return redirect("lancamento_detail", pk=lancamento.pk)
+
+
+class LancamentoDeleteView(RequerExclusaoMixin, DeleteView):
+    """
+    Só permite excluir rascunhos — um lançamento confirmado nunca pode
+    ser apagado (RF-36: manter o histórico).
+    """
+    model = LancamentoContabil
+    template_name = "core/confirm_delete.html"
+    success_url = "/painel/lancamentos/"
+
+    def get_queryset(self):
+        return LancamentoContabil.objects.filter(status=LancamentoContabil.STATUS_RASCUNHO)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["cancel_url"] = self.success_url
+        context["titulo"] = "Excluir lançamento (rascunho)"
+        return context    
+    
+# ---------------------------------------------------------------------
+# Certificados e configuração do sistema
+# ---------------------------------------------------------------------
+@login_required
+def certificado_list(request):
+    certificados = Certificado.objects.select_related("empresa").order_by("data_vencimento")
+    return render(request, "core/certificado_list.html", {"certificados": certificados})
+
+
+@requer_edicao
+def novo_certificado(request):
+    if request.method == "POST":
+        form = CertificadoForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Certificado cadastrado com sucesso.")
+            return redirect("certificado_list")
+    else:
+        form = CertificadoForm()
+
+    return render(request, "core/certificado_form.html", {"form": form, "titulo": "Novo Certificado"})
+
+
+@requer_edicao
+def editar_certificado(request, pk):
+    certificado = get_object_or_404(Certificado, pk=pk)
+
+    if request.method == "POST":
+        form = CertificadoForm(request.POST, instance=certificado)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Certificado atualizado com sucesso.")
+            return redirect("certificado_list")
+    else:
+        form = CertificadoForm(instance=certificado)
+
+    return render(request, "core/certificado_form.html", {
+        "form": form, "titulo": f"Editar — {certificado.nome_empresa}"
+    })
+    
+@requer_edicao
+def certificados_lote(request):
+    """
+    Carga rápida: várias linhas de nome + data de uma vez, igual à
+    planilha que você já usa hoje.
+    """
+    if request.method == "POST":
+        formset = CertificadoRapidoFormSet(request.POST, queryset=Certificado.objects.none())
+
+        if formset.is_valid():
+            criados = 0
+            for form in formset:
+                nome_empresa = form.cleaned_data.get("nome_empresa")
+                if not nome_empresa:
+                    continue
+                certificado = form.save(commit=False)
+                certificado.save()
+                criados += 1
+
+            messages.success(request, f"{criados} certificado(s) cadastrado(s) com sucesso.")
+            return redirect("certificado_list")
+    else:
+        formset = CertificadoRapidoFormSet(queryset=Certificado.objects.none())
+
+    return render(request, "core/certificados_lote.html", {"formset": formset})
+
+
+@requer_edicao
+def importar_certificados_excel(request):
+    """
+    Importa direto o Excel que você já mantém hoje. Linhas cuja data não
+    dá pra interpretar com certeza entram sem data, para completar depois.
+    """
+    if request.method == "POST" and request.FILES.get("arquivo"):
+        from .excel_utils import ler_planilha_certificados
+
+        try:
+            linhas = ler_planilha_certificados(request.FILES["arquivo"])
+        except Exception:
+            messages.error(request, "Não consegui ler esse arquivo. Confirme que é um .xlsx válido.")
+            return redirect("importar_certificados_excel")
+
+        criados = 0
+        sem_data = 0
+
+        for linha in linhas:
+            Certificado.objects.create(
+                nome_empresa=linha["nome_empresa"],
+                data_vencimento=linha["data_vencimento"],
+            )
+            criados += 1
+            if linha["data_vencimento"] is None:
+                sem_data += 1
+
+        if sem_data:
+            messages.warning(
+                request,
+                f"{criados} certificado(s) importado(s), sendo {sem_data} sem "
+                "data reconhecida — complete a data deles na lista."
+            )
+        else:
+            messages.success(request, f"{criados} certificado(s) importado(s) com sucesso.")
+
+        return redirect("certificado_list")
+
+    return render(request, "core/importar_certificados_excel.html")
+
+
+class CertificadoDeleteView(RequerExclusaoMixin, DeleteView):
+    model = Certificado
+    template_name = "core/confirm_delete.html"
+    success_url = "/painel/certificados/"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["cancel_url"] = self.success_url
+        context["titulo"] = "Excluir certificado"
+        return context
+
+
+@login_required
+def exportar_certificados_excel(request):
+    """
+    Exporta os certificados para .xlsx usando o mesmo semáforo (iconSet
+    de 3 cores) da tela — vencido/próximo/em dia.
+    """
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill
+    from openpyxl.formatting.rule import IconSetRule
+    from django.http import HttpResponse
+
+    workbook = openpyxl.Workbook()
+    aba = workbook.active
+    aba.title = "Certificados"
+
+    cabecalho_fill = PatternFill("solid", fgColor="E7E7E7")
+    centro = Alignment(horizontal="center")
+
+    colunas = ["Empresa", "Certificado", "Vencimento", "Status (semáforo)"]
+    for col, titulo in enumerate(colunas, start=1):
+        celula = aba.cell(row=1, column=col, value=titulo)
+        celula.font = Font(bold=True)
+        celula.fill = cabecalho_fill
+
+    linha = 2
+    for certificado in Certificado.objects.select_related("empresa").order_by("data_vencimento"):
+        aba.cell(row=linha, column=1, value=certificado.nome_empresa)
+        aba.cell(row=linha, column=2, value=certificado.nome)
+        aba.cell(
+            row=linha, column=3,
+            value=certificado.data_vencimento.strftime("%d/%m/%Y") if certificado.data_vencimento else ""
+        )
+
+        celula_status = aba.cell(row=linha, column=4)
+        if certificado.data_vencimento:
+            celula_status.value = certificado.status_calculado()
+        celula_status.alignment = centro
+
+        linha += 1
+
+    if linha > 2:
+        aba.conditional_formatting.add(
+            f"D2:D{linha - 1}",
+            IconSetRule(icon_style="3TrafficLights1", type="num", values=[0, 2, 3], showValue=False)
+        )
+
+    aba.column_dimensions["A"].width = 35
+    aba.column_dimensions["B"].width = 35
+    aba.column_dimensions["C"].width = 15
+    aba.column_dimensions["D"].width = 18
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = 'attachment; filename="certificados.xlsx"'
+    workbook.save(response)
+    return response
+
+
+@requer_administrador
+def configuracao_sistema(request):
+    config = ConfiguracaoSistema.obter()
+
+    if request.method == "POST":
+        form = ConfiguracaoSistemaForm(request.POST, instance=config)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Configurações atualizadas com sucesso.")
+            return redirect("configuracao_sistema")
+    else:
+        form = ConfiguracaoSistemaForm(instance=config)
+
+    return render(request, "core/configuracao_sistema.html", {"form": form})    

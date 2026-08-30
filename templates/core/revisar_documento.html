@@ -25,6 +25,19 @@
                         Cadastrar empresa
                     </a>
                 {% endif %}
+                {% if not empresa_emitente and documento.cnpj_emitente %}
+                    <div style="margin-top:8px;">
+                        {% if fornecedor_emitente %}
+                            <span class="status-pill status-PAGO">Fornecedor: {{ fornecedor_emitente.razao_social }}</span>
+                        {% else %}
+                            <span class="status-pill status-PENDENTE">Fornecedor não cadastrado</span>
+                            <a class="btn btn-secondary btn-sm" style="margin-top:8px; display:inline-block;"
+                               href="{% url 'catalogo_novo' slug='fornecedores' %}?documento_id={{ documento.pk }}&cnpj={{ documento.cnpj_emitente|urlencode }}&razao_social={{ documento.razao_social_emitente|urlencode }}">
+                                Cadastrar fornecedor
+                            </a>
+                        {% endif %}
+                    </div>
+                {% endif %}
             </div>
 
             <div style="flex:1; min-width:260px; background:#f5f6f8; border-radius:8px; padding:14px;">
@@ -84,6 +97,27 @@
             </div>
         </form>
     </div>
+    {% if documento.empresa %}
+        <div class="card" style="max-width:700px; margin-top:20px;">
+            <h3 style="margin-bottom:10px;">Lançamento contábil</h3>
+
+            {% if documento.lancamentos.all %}
+                {% for lancamento in documento.lancamentos.all %}
+                    <p style="margin-bottom:8px;">
+                        <a href="{% url 'lancamento_detail' pk=lancamento.pk %}">{{ lancamento }}</a>
+                    </p>
+                {% endfor %}
+            {% else %}
+                <p style="color:#777; font-size:14px; margin-bottom:14px;">
+                    Ainda não foi gerado nenhum lançamento a partir deste documento.
+                </p>
+                <form method="POST" action="{% url 'gerar_lancamento' documento_pk=documento.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary">Gerar lançamento</button>
+                </form>
+            {% endif %}
+        </div>
+    {% endif %}
 
     <style>
         .campo { margin-bottom: 18px; }

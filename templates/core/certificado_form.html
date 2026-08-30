@@ -6,19 +6,14 @@
 
     <h1>{{ titulo }}</h1>
 
-    <div class="card" style="max-width:600px;">
+    <div class="card" style="max-width:550px;">
         <form method="POST">
             {% csrf_token %}
-
-            {% if documento_id %}
-                <input type="hidden" name="documento_id" value="{{ documento_id }}">
-            {% endif %}
 
             {% for field in form %}
                 <div class="campo">
                     {{ field.label_tag }}
                     {{ field }}
-
                     {% if field.errors %}
                         <div class="errores">{{ field.errors }}</div>
                     {% endif %}
@@ -27,7 +22,7 @@
 
             <div class="botoes">
                 <button type="submit" class="btn btn-primary">Salvar</button>
-                <a href="{% url 'catalogo_list' slug=slug %}" class="btn btn-secondary">Cancelar</a>
+                <a href="{% url 'certificado_list' %}" class="btn btn-secondary">Cancelar</a>
             </div>
         </form>
     </div>
@@ -35,7 +30,7 @@
     <style>
         .campo { margin-bottom: 18px; }
         label { display: block; margin-bottom: 7px; font-weight: bold; }
-        input, textarea, select {
+        input, select, textarea {
             width: 100%; padding: 10px; border: 1px solid #ccc;
             border-radius: 6px; font-size: 15px;
         }

@@ -1,0 +1,55 @@
+{% extends "core/panel_base.html" %}
+
+{% block title %}Carga Rápida de Certificados{% endblock %}
+
+{% block content %}
+
+    <h1>Carga Rápida de Certificados</h1>
+    <p style="color:#777; font-size:14px; margin-bottom:20px;">
+        Preencha as linhas que quiser (nome e data) — as linhas vazias são
+        ignoradas. Igual à sua planilha: só nome e data.
+    </p>
+
+    <div class="card">
+        <form method="POST">
+            {% csrf_token %}
+            {{ formset.management_form }}
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>Data de vencimento</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for form in formset %}
+                        <tr>
+                            <td>{{ form.nome_empresa }}</td>
+                            <td>{{ form.data_vencimento }}</td>
+                        </tr>
+                        {% if form.errors %}
+                            <tr><td colspan="2" class="errores">{{ form.errors }}</td></tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <div class="botoes">
+                <button type="submit" class="btn btn-primary">Salvar todos</button>
+                <a href="{% url 'certificado_list' %}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+
+    <style>
+        input {
+            padding: 8px; border: 1px solid #ccc; border-radius: 6px;
+            font-size: 14px; width: 100%;
+        }
+        td { padding: 6px 10px !important; }
+        .errores { color: #b00020; font-size: 13px; }
+        .botoes { display: flex; gap: 10px; margin-top: 20px; }
+    </style>
+
+{% endblock %}

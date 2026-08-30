@@ -147,15 +147,23 @@
         <a href="{% url 'painel_dashboard' %}">Dashboard</a>
         <a href="{% url 'empresa_list' %}">Empresas</a>
         <a href="{% url 'documento_list' %}">Documentos</a>
-
+        <a href="{% url 'lancamento_list' %}">Lançamentos</a>
+        <a href="{% url 'certificado_list' %}">Certificados</a>
         <div class="grupo-titulo">Catálogos</div>
         <a href="{% url 'catalogo_list' slug='tipos-empresa' %}">Tipos de Empresa</a>
         <a href="{% url 'catalogo_list' slug='regimes' %}">Regimes Tributários</a>
         <a href="{% url 'catalogo_list' slug='impostos' %}">Impostos</a>
         <a href="{% url 'catalogo_list' slug='cnae' %}">CNAE</a>
         <a href="{% url 'catalogo_list' slug='obrigacoes' %}">Obrigações Acessórias</a>
+        <a href="{% url 'catalogo_list' slug='fornecedores' %}">Fornecedores</a>
 
                 <div class="grupo-titulo">Outros</div>
+
+        {% if request.user.perfil.papel == "ADMIN" %}
+            <a href="{% url 'usuario_list' %}">Usuários</a>
+            <a href="{% url 'configuracao_sistema' %}">Configurações</a>
+        {% endif %}        
+                
         <a href="{% url 'inicio' %}">Site</a>
         <form method="POST" action="{% url 'logout' %}" style="margin:0;">
             {% csrf_token %}

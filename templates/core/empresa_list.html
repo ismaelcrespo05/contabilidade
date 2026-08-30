@@ -1,4 +1,5 @@
 {% extends "core/panel_base.html" %}
+{% load core_extras %}
 
 {% block title %}Empresas{% endblock %}
 
@@ -8,8 +9,10 @@
         <h1 style="margin:0;">Empresas</h1>
         <div class="acoes">
             <a class="btn btn-secondary" href="{% url 'exportar_excel' %}">Exportar Excel</a>
-            <a class="btn btn-secondary" href="{% url 'importar_comprovante' %}">Importar Comprovante</a>
-            <a class="btn btn-primary" href="{% url 'nova_empresa' %}">+ Nova Empresa</a>
+            {% if request.user|pode_editar %}
+                <a class="btn btn-secondary" href="{% url 'importar_comprovante' %}">Importar Comprovante</a>
+                <a class="btn btn-primary" href="{% url 'nova_empresa' %}">+ Nova Empresa</a>
+            {% endif %}
         </div>
     </div>
 
@@ -40,10 +43,14 @@
                         <td class="acoes">
                             <a class="btn btn-secondary btn-sm"
                                href="{% url 'competencia_list' empresa_pk=empresa.pk %}">Competências</a>
-                            <a class="btn btn-secondary btn-sm"
-                               href="{% url 'editar_empresa' pk=empresa.pk %}">Editar</a>
-                            <a class="btn btn-danger btn-sm"
-                               href="{% url 'excluir_empresa' pk=empresa.pk %}">Excluir</a>
+                            {% if request.user|pode_editar %}
+                                <a class="btn btn-secondary btn-sm"
+                                   href="{% url 'editar_empresa' pk=empresa.pk %}">Editar</a>
+                            {% endif %}
+                            {% if request.user|pode_excluir %}
+                                <a class="btn btn-danger btn-sm"
+                                   href="{% url 'excluir_empresa' pk=empresa.pk %}">Excluir</a>
+                            {% endif %}
                         </td>
                     </tr>
                 {% empty %}
