@@ -101,13 +101,26 @@ class ObrigacaoAcessoria(models.Model):
 
 
 class Empresa(models.Model):
-    cnpj = models.CharField(max_length=18, unique=True)
-    razao_social = models.CharField(max_length=200)
-    nome_fantasia = models.CharField(max_length=200, blank=True)
+    cnpj = models.CharField(
+        max_length=18,
+        unique=True,
+        null = True,
+        blank = True)
+    
+    razao_social = models.CharField(
+        max_length=200
+    )
+    
+    nome_fantasia = models.CharField(
+        max_length=200,
+        blank=True
+    )
 
     tipo_empresa = models.ForeignKey(
         TipoEmpresa,
-        on_delete=models.PROTECT
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
     )
 
     regime_tributario = models.ForeignKey(
@@ -117,7 +130,9 @@ class Empresa(models.Model):
 
     cnae_principal = models.ForeignKey(
         CNAE,
-        on_delete=models.PROTECT
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
     )
 
     impostos = models.ManyToManyField(
@@ -272,31 +287,28 @@ class CumprimentoObrigacao(models.Model):
         status = "cumprida" if self.cumprido else "pendente"
         return f"{self.obrigacao} - {self.competencia} ({status})"
 
+    def data_vencimento_calculada(self):
+        """
+        Mesma lógica usada em status_calculado(), exposta à parte para
+        poder ordenar e exibir a data real em telas como o painel de
+        vencimentos.
+        """
+        import calendar
+        from datetime import date
+
+        dia = self.obrigacao.dia_vencimento or 28
+        ultimo_dia_do_mes = calendar.monthrange(self.competencia.ano, self.competencia.mes)[1]
+        return date(self.competencia.ano, self.competencia.mes, min(dia, ultimo_dia_do_mes))
+
     def status_calculado(self):
-        """
-        Retorna 3 (em dia), 2 (risco) ou 1 (atrasada).
-        Prioridade: status_manual > cumprido > data de vencimento.
-        """
         if self.status_manual:
             return self.status_manual
 
         if self.cumprido:
             return self.STATUS_EM_DIA
 
-        import calendar
-        from datetime import date
-
-        dia = self.obrigacao.dia_vencimento or 28
-        ultimo_dia_do_mes = calendar.monthrange(
-            self.competencia.ano, self.competencia.mes
-        )[1]
-        vencimento = date(
-            self.competencia.ano,
-            self.competencia.mes,
-            min(dia, ultimo_dia_do_mes)
-        )
-
-        hoje = date.today()
+        vencimento = self.data_vencimento_calculada()
+        hoje = __import__("datetime").date.today()
 
         if hoje > vencimento:
             return self.STATUS_ATRASADA
@@ -480,6 +492,23 @@ class ConfiguracaoSistema(models.Model):
             "aparecer em amarelo (próximo a vencer)."
         )
     )
+    
+    dias_alerta_obrigacao = models.PositiveIntegerField(
+        default=5,
+        help_text="Quantos dias antes do vencimento uma obrigação já deve aparecer em amarelo."
+    )
+
+    dias_alerta_imposto = models.PositiveIntegerField(
+        default=5,
+        help_text="Quantos dias antes do vencimento um imposto já deve aparecer em amarelo."
+    )
+
+    notificacoes_sistema_ativas = models.BooleanField(default=True, verbose_name="Notificações dentro do sistema")
+    notificacoes_email_ativas = models.BooleanField(default=False, verbose_name="Alertas por e-mail")
+    notificar_obrigacoes_proximas = models.BooleanField(default=True, verbose_name="Obrigações próximas a vencer")
+    notificar_obrigacoes_vencidas = models.BooleanField(default=True, verbose_name="Obrigações vencidas")
+    notificar_certificados_proximos = models.BooleanField(default=True, verbose_name="Certificados próximos a vencer")
+    notificar_erros_processamento = models.BooleanField(default=True, verbose_name="Erros de processamento")
 
     @classmethod
     def obter(cls):
@@ -533,7 +562,15 @@ class Certificado(models.Model):
     )
 
     observacao = models.TextField(blank=True)
-
+    
+    # Arquivo .pfx/.p12 original, guardado quando o certificado é
+    # importado diretamente do arquivo (em vez de digitado à mão).
+    arquivo = models.FileField(
+        upload_to="certificados/%Y/%m/",
+        null=True,
+        blank=True
+    )
+    
     data_cadastro = models.DateTimeField(auto_now_add=True)
 
     def status_calculado(self):

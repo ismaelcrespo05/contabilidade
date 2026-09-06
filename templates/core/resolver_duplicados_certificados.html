@@ -1,0 +1,43 @@
+{% extends "core/panel_base.html" %}
+
+{% block title %}Certificados Pendentes{% endblock %}
+
+{% block content %}
+
+    <h1>Certificados Pendentes de Decisão</h1>
+    <p style="color:#777; font-size:14px; margin-bottom:20px;">
+        Alguns certificados já têm um registro parecido no sistema.
+    </p>
+
+    <div class="card">
+        <form method="POST">
+            {% csrf_token %}
+
+            {% for item in itens %}
+                <div style="padding:14px 0; border-bottom:1px solid #f0f0f0;">
+                    {% if item.tipo == "exato" %}
+                        <span class="status-pill status-PENDENTE">Duplicado exato</span>
+                    {% else %}
+                        <span class="status-pill status-INFORMADO">Atualização (renovação)</span>
+                    {% endif %}
+
+                    <p style="margin-top:8px;"><strong>Arquivo novo:</strong> {{ item.novo.nome_arquivo }} — {{ item.novo.nome_empresa }}, vence {{ item.novo.data_vencimento }}</p>
+                    <p style="color:#777; font-size:13px;">
+                        <strong>Já cadastrado:</strong> {{ item.existente.nome_empresa }}, vence {{ item.existente.data_vencimento|date:"d/m/Y" }}
+                    </p>
+
+                    <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
+                        {% if item.tipo == "exato" %}
+                            <button type="submit" name="acao_{{ item.indice }}" value="substituir" class="btn btn-primary btn-sm">Substituir</button>
+                        {% else %}
+                            <button type="submit" name="acao_{{ item.indice }}" value="atualizar" class="btn btn-primary btn-sm">Atualizar (recomendado)</button>
+                            <button type="submit" name="acao_{{ item.indice }}" value="manter_separado" class="btn btn-secondary btn-sm">Manter os dois registros</button>
+                        {% endif %}
+                        <button type="submit" name="acao_{{ item.indice }}" value="cancelar" class="btn btn-secondary btn-sm">Cancelar</button>
+                    </div>
+                </div>
+            {% endfor %}
+        </form>
+    </div>
+
+{% endblock %}

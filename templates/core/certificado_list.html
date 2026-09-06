@@ -6,58 +6,90 @@
 {% block content %}
 
     <div class="top-bar">
-        <h1 style="margin:0;">Certificados</h1>
+        <h1 style="margin:0;">Certificados ({{ certificados|length }})</h1>
         <div class="acoes">
             <a class="btn btn-secondary" href="{% url 'exportar_certificados_excel' %}">Exportar Excel</a>
             {% if request.user|pode_editar %}
                 <a class="btn btn-secondary" href="{% url 'importar_certificados_excel' %}">Importar Excel</a>
-                <a class="btn btn-secondary" href="{% url 'certificados_lote' %}">Carga rápida (várias linhas)</a>
+                <a class="btn btn-secondary" href="{% url 'importar_certificados_arquivo' %}">Importar de Arquivo (.pfx)</a>
                 <a class="btn btn-primary" href="{% url 'novo_certificado' %}">+ Novo Certificado</a>
             {% endif %}
         </div>
     </div>
 
     <div class="card">
-        <table>
-            <thead>
-                <tr>
-                    <th>Nome</th>
-                    <th>Certificado</th>
-                    <th>Vencimento</th>
-                    <th>Status</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for certificado in certificados %}
+
+        <div style="display:flex; gap:12px; align-items:center; margin-bottom:18px; flex-wrap:wrap; justify-content:space-between;">
+            <form method="get" style="display:flex; gap:8px;">
+                <input type="text" name="q" value="{{ termo }}" placeholder="Buscar por nome..."
+                       style="padding:8px 12px; border:1px solid #ccc; border-radius:6px; font-size:14px;">
+                <input type="hidden" name="ordenar" value="{{ ordenar }}">
+                <button type="submit" class="btn btn-secondary btn-sm">Buscar</button>
+            </form>
+
+            <div class="acoes">
+                <span style="font-size:13px; color:#777; align-self:center;">Ordenar:</span>
+                <a class="btn btn-sm {% if ordenar == 'nome' %}btn-primary{% else %}btn-secondary{% endif %}"
+                   href="?q={{ termo }}&ordenar=nome">Nome (A-Z)</a>
+                <a class="btn btn-sm {% if ordenar == 'vencimento' %}btn-primary{% else %}btn-secondary{% endif %}"
+                   href="?q={{ termo }}&ordenar=vencimento">Vencimento</a>
+            </div>
+        </div>
+
+        <form method="POST" action="{% url 'excluir_certificados_selecionados' %}"
+              onsubmit="return confirm('Excluir os certificados selecionados? Essa ação não pode ser desfeita.');">
+            {% csrf_token %}
+
+            {% if request.user|pode_excluir %}
+                <div style="margin-bottom:12px; display:flex; gap:10px; align-items:center;">
+                    <label style="font-weight:normal; display:flex; align-items:center; gap:6px;">
+                        <input type="checkbox" onclick="document.querySelectorAll('.checkbox-certificado').forEach(cb => cb.checked = this.checked)">
+                        Selecionar todos
+                    </label>
+                    <button type="submit" class="btn btn-danger btn-sm">Excluir selecionados</button>
+                </div>
+            {% endif %}
+
+            <table>
+                <thead>
                     <tr>
-                        <td>
-                            {{ certificado.nome_empresa }}
-                            {% if certificado.empresa %}
-                                <span style="font-size:11px; color:#777;">(vinculado)</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ certificado.nome }}</td>
-                        <td>{{ certificado.data_vencimento|date:"d/m/Y"|default:"—" }}</td>
-                        <td>
-                            <span class="status-pill status-semaforo-{{ certificado.status_calculado }}">
-                                {{ certificado.status_calculado_display }}
-                            </span>
-                        </td>
-                        <td class="acoes">
-                            {% if request.user|pode_editar %}
-                                <a class="btn btn-secondary btn-sm" href="{% url 'editar_certificado' pk=certificado.pk %}">Editar</a>
-                            {% endif %}
-                            {% if request.user|pode_excluir %}
-                                <a class="btn btn-danger btn-sm" href="{% url 'excluir_certificado' pk=certificado.pk %}">Excluir</a>
-                            {% endif %}
-                        </td>
+                        {% if request.user|pode_excluir %}<th></th>{% endif %}
+                        <th>Nome</th>
+                        <th>Certificado</th>
+                        <th>Vencimento</th>
+                        <th>Status</th>
+                        <th>Ações</th>
                     </tr>
-                {% empty %}
-                    <tr><td colspan="5">Nenhum certificado cadastrado ainda.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    {% for certificado in certificados %}
+                        <tr>
+                            {% if request.user|pode_excluir %}
+                                <td><input type="checkbox" name="selecionados" value="{{ certificado.pk }}" class="checkbox-certificado"></td>
+                            {% endif %}
+                            <td>
+                                {{ certificado.nome_empresa }}
+                                {% if certificado.empresa %}<span style="font-size:11px; color:#777;">(vinculado)</span>{% endif %}
+                            </td>
+                            <td>{{ certificado.nome }}</td>
+                            <td>{{ certificado.data_vencimento|date:"d/m/Y"|default:"—" }}</td>
+                            <td>
+                                <span class="status-pill status-semaforo-{{ certificado.status_calculado }}">
+                                    {{ certificado.status_calculado_display }}
+                                </span>
+                            </td>
+                            <td class="acoes">
+                                {% if request.user|pode_editar %}
+                                    <a class="btn btn-secondary btn-sm" href="{% url 'editar_certificado' pk=certificado.pk %}">Editar</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="6">Nenhum certificado cadastrado ainda.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </form>
     </div>
 
     <style>

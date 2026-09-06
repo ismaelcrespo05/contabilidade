@@ -1,0 +1,60 @@
+{% extends "core/panel_base.html" %}
+
+{% block title %}Vencimentos{% endblock %}
+
+{% block content %}
+
+    <h1>Vencimentos — Obrigações Pendentes</h1>
+    <p style="color:#777; font-size:14px; margin-bottom:24px;">
+        Só aparecem aqui obrigações em risco ou atrasadas, ordenadas da
+        mais urgente para a menos urgente. As que já estão em dia (verde)
+        não aparecem — não precisam de atenção agora.
+    </p>
+
+    {% for regime, cumprimentos in por_regime.items %}
+        <h2 style="color:#27313a; margin-bottom:10px;">{{ regime }} ({{ cumprimentos|length }})</h2>
+
+        <div class="card" style="margin-bottom:30px;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Vencimento</th>
+                        <th>Empresa</th>
+                        <th>Obrigação</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cumprimento in cumprimentos %}
+                        <tr>
+                            <td>{{ cumprimento.data_vencimento_calculada|date:"d/m/Y" }}</td>
+                            <td>{{ cumprimento.competencia.empresa.razao_social }}</td>
+                            <td>{{ cumprimento.obrigacao.nome }}</td>
+                            <td>
+                                <span class="status-pill status-semaforo-{{ cumprimento.status_calculado }}">
+                                    {{ cumprimento.status_calculado_display }}
+                                </span>
+                            </td>
+                            <td class="acoes">
+                                <a class="btn btn-secondary btn-sm"
+                                   href="{% url 'competencia_detail' pk=cumprimento.competencia_id %}">Ver</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% empty %}
+        <div class="card">
+            <p style="color:#777;">Nenhuma obrigação em risco ou atrasada no momento. 🎉</p>
+        </div>
+    {% endfor %}
+
+    <style>
+        .status-semaforo-3 { background: #e6f4ea; color: #1e6b3a; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .status-semaforo-2 { background: #fff3cd; color: #8a6500; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .status-semaforo-1 { background: #fde2e2; color: #b00020; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+    </style>
+
+{% endblock %}

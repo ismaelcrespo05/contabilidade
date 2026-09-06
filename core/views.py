@@ -5,7 +5,7 @@ from django.views.generic import ListView, DeleteView
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from .forms import EmpresaForm, CompetenciaForm, ApuracaoImpostoForm, DocumentoForm, EditarUsuarioForm, NovoUsuarioForm, LancamentoContabilForm, CertificadoForm, CertificadoRapidoFormSet,  ConfiguracaoSistemaForm
+from .forms import EmpresaForm, CompetenciaForm, ApuracaoImpostoForm, DocumentoForm, EditarUsuarioForm, ImportarRotinasForm, NovoUsuarioForm, LancamentoContabilForm, CertificadoForm, CertificadoRapidoFormSet,  ConfiguracaoSistemaForm
 from .models import (
     TipoEmpresa, RegimeTributario, Imposto, CNAE, ObrigacaoAcessoria,
     Empresa, Competencia, ApuracaoImposto, CumprimentoObrigacao, Documento, Fornecedor, LancamentoContabil, ConfiguracaoSistema, Certificado
@@ -106,13 +106,22 @@ class EmpresaListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = Empresa.objects.select_related(
-            "tipo_empresa", "regime_tributario"
-        ).order_by("razao_social")
-        busca = self.request.GET.get("q")
-        if busca:
-            qs = qs.filter(razao_social__icontains=busca)
+        from .list_utils import aplicar_busca_e_ordenacao
+
+        qs, self.termo, self.ordenar = aplicar_busca_e_ordenacao(
+            self.request,
+            Empresa.objects.select_related("tipo_empresa", "regime_tributario"),
+            campos_busca=["razao_social", "cnpj"],
+            opcoes_ordenacao={"nome": "razao_social", "cnpj": "cnpj"},
+            padrao="nome",
+        )
         return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["termo"] = self.termo
+        context["ordenar"] = self.ordenar
+        return context
 
 
 @requer_edicao
@@ -957,9 +966,19 @@ class LancamentoDeleteView(RequerExclusaoMixin, DeleteView):
 # ---------------------------------------------------------------------
 @login_required
 def certificado_list(request):
-    certificados = Certificado.objects.select_related("empresa").order_by("data_vencimento")
-    return render(request, "core/certificado_list.html", {"certificados": certificados})
+    from .list_utils import aplicar_busca_e_ordenacao
 
+    certificados, termo, ordenar = aplicar_busca_e_ordenacao(
+        request,
+        Certificado.objects.select_related("empresa"),
+        campos_busca=["nome_empresa", "nome"],
+        opcoes_ordenacao={"nome": "nome_empresa", "vencimento": "data_vencimento"},
+        padrao="vencimento",
+    )
+
+    return render(request, "core/certificado_list.html", {
+        "certificados": certificados, "termo": termo, "ordenar": ordenar,
+    })
 
 @requer_edicao
 def novo_certificado(request):
@@ -1059,7 +1078,270 @@ def importar_certificados_excel(request):
 
     return render(request, "core/importar_certificados_excel.html")
 
+@requer_edicao
+def importar_certificados_arquivo(request):
+    """
+    Importa certificado(s) direto do(s) arquivo(s) .pfx/.p12. Se já
+    existir um certificado do mesmo titular com a MESMA data de
+    vencimento, é um duplicado exato. Se existir um do mesmo titular
+    com data DIFERENTE, é uma atualização (renovação) — nos dois casos
+    fica pendente para você decidir na tela seguinte.
+    """
+    if request.method == "POST":
+        from django.core.files.base import ContentFile
+        from django.core.files.storage import default_storage
+        from .cert_utils import extrair_dados_certificado, eh_arquivo_certificado
+        from .cert_dedupe import buscar_certificado_relacionado, extrair_cnpj_do_texto
 
+        senha = request.POST.get("senha", "")
+        arquivos = request.FILES.getlist("arquivos")
+        candidatos = [a for a in arquivos if eh_arquivo_certificado(a.name)]
+        ignorados = len(arquivos) - len(candidatos)
+
+        importados = 0
+        falhas_senha = []
+        pendentes = request.session.get("certificados_pendentes_revisao", [])
+
+        for arquivo in candidatos:
+            conteudo = arquivo.read()
+
+            try:
+                dados = extrair_dados_certificado(conteudo, senha)
+            except Exception:
+                falhas_senha.append(arquivo.name)
+                continue
+
+            cnpj = extrair_cnpj_do_texto(dados["nome_completo_cn"])
+            tipo, existente = buscar_certificado_relacionado(
+                dados["nome_empresa"], dados["data_vencimento"], cnpj
+            )
+
+            if tipo:
+                caminho_temp = default_storage.save(
+                    f"certificados/_pendentes/{arquivo.name}", ContentFile(conteudo)
+                )
+                pendentes.append({
+                    "tipo": tipo,
+                    "caminho": caminho_temp,
+                    "nome_arquivo": arquivo.name,
+                    "nome_empresa": dados["nome_empresa"],
+                    "data_vencimento": str(dados["data_vencimento"]),
+                    "nome_completo_cn": dados["nome_completo_cn"],
+                    "existente_id": existente.id,
+                })
+                continue
+
+            certificado = Certificado(
+                nome_empresa=dados["nome_empresa"],
+                data_vencimento=dados["data_vencimento"],
+                observacao=dados["nome_completo_cn"],
+            )
+            certificado.arquivo.save(arquivo.name, ContentFile(conteudo), save=False)
+            certificado.save()
+            importados += 1
+
+        request.session["certificados_pendentes_revisao"] = pendentes
+        total_agora = Certificado.objects.count()
+
+        if importados:
+            messages.success(request, f"{importados} certificado(s) novo(s) importado(s). Total agora: {total_agora}.")
+
+        if ignorados:
+            messages.info(request, f"{ignorados} arquivo(s) ignorados por não serem .pfx/.p12.")
+
+        if falhas_senha:
+            messages.warning(request, "Não foi possível ler (senha incorreta): " + ", ".join(falhas_senha))
+
+        if pendentes:
+            messages.warning(
+                request,
+                f"{len(pendentes)} arquivo(s) precisam da sua decisão (duplicado ou atualização)."
+            )
+            return redirect("resolver_duplicados_certificados")
+
+        if not importados and not ignorados and not falhas_senha:
+            messages.info(request, f"Nada novo para importar. Total agora: {total_agora}.")
+
+        return redirect("certificado_list")
+
+    return render(request, "core/importar_certificados_arquivo.html")
+
+
+@requer_edicao
+def resolver_duplicados_certificados(request):
+    """
+    Para "exato": Substituir (troca o arquivo/dados do existente) ou
+    Cancelar (descarta o novo). Para "atualizacao": Atualizar (o novo
+    vencimento substitui o antigo no MESMO registro — não deixa dois),
+    Manter os dois (cria um registro separado mesmo assim), ou Cancelar.
+    """
+    from django.core.files.base import ContentFile
+    from django.core.files.storage import default_storage
+
+    pendentes = request.session.get("certificados_pendentes_revisao", [])
+
+    if not pendentes:
+        messages.info(request, "Não há certificados pendentes de decisão.")
+        return redirect("certificado_list")
+
+    if request.method == "POST":
+        atualizados = 0
+        substituidos = 0
+        mantidos_separados = 0
+        cancelados = 0
+        restantes = []
+
+        for i, item in enumerate(pendentes):
+            acao = request.POST.get(f"acao_{i}")
+
+            if acao in ("substituir", "atualizar"):
+                with default_storage.open(item["caminho"], "rb") as f:
+                    conteudo = f.read()
+
+                existente = get_object_or_404(Certificado, pk=item["existente_id"])
+                existente.nome_empresa = item["nome_empresa"]
+                existente.data_vencimento = item["data_vencimento"]
+                existente.observacao = item["nome_completo_cn"]
+                existente.arquivo.save(item["nome_arquivo"], ContentFile(conteudo), save=False)
+                existente.save()
+
+                default_storage.delete(item["caminho"])
+                if acao == "substituir":
+                    substituidos += 1
+                else:
+                    atualizados += 1
+
+            elif acao == "manter_separado":
+                with default_storage.open(item["caminho"], "rb") as f:
+                    conteudo = f.read()
+
+                novo = Certificado(
+                    nome_empresa=item["nome_empresa"],
+                    data_vencimento=item["data_vencimento"],
+                    observacao=item["nome_completo_cn"],
+                )
+                novo.arquivo.save(item["nome_arquivo"], ContentFile(conteudo), save=False)
+                novo.save()
+
+                default_storage.delete(item["caminho"])
+                mantidos_separados += 1
+
+            elif acao == "cancelar":
+                default_storage.delete(item["caminho"])
+                cancelados += 1
+
+            else:
+                restantes.append(item)
+
+        request.session["certificados_pendentes_revisao"] = restantes
+
+        total_agora = Certificado.objects.count()
+        messages.success(
+            request,
+            f"{atualizados} atualizado(s), {substituidos} substituído(s), "
+            f"{mantidos_separados} mantido(s) separado(s), {cancelados} descartado(s). "
+            f"Total agora: {total_agora}."
+        )
+
+        if not restantes:
+            return redirect("certificado_list")
+        return redirect("resolver_duplicados_certificados")
+
+    contexto = []
+    for i, item in enumerate(pendentes):
+        existente = Certificado.objects.filter(pk=item["existente_id"]).first()
+        contexto.append({"indice": i, "novo": item, "existente": existente, "tipo": item["tipo"]})
+
+    return render(request, "core/resolver_duplicados_certificados.html", {"itens": contexto})
+
+
+@requer_exclusao
+def excluir_certificados_selecionados(request):
+    """Exclui em massa os certificados marcados na lista (checkboxes)."""
+    if request.method == "POST":
+        ids = request.POST.getlist("selecionados")
+        if ids:
+            Certificado.objects.filter(id__in=ids).delete()
+            messages.success(
+                request,
+                f"{len(ids)} certificado(s) excluído(s). Total agora: {Certificado.objects.count()}."
+            )
+        else:
+            messages.info(request, "Nenhum certificado selecionado.")
+
+    return redirect("certificado_list")
+
+@requer_edicao
+def retentar_certificados(request):
+    """
+    Segunda chance para os certificados que não abriram com a senha
+    informada na tela anterior — cada um pode receber sua própria
+    senha aqui, ou ser descartado, sem precisar selecionar o arquivo
+    de novo (ele já está guardado temporariamente).
+    """
+    from django.core.files.base import ContentFile
+    from django.core.files.storage import default_storage
+    from .cert_utils import extrair_dados_certificado
+
+    pendentes = request.session.get("certificados_pendentes", [])
+
+    if not pendentes:
+        messages.info(request, "Não há certificados pendentes de senha no momento.")
+        return redirect("certificado_list")
+
+    if request.method == "POST":
+        acao = request.POST.get("acao")
+
+        if acao == "descartar":
+            indice = int(request.POST.get("indice"))
+            if 0 <= indice < len(pendentes):
+                item = pendentes.pop(indice)
+                default_storage.delete(item["caminho"])
+                messages.info(request, f'Arquivo "{item["nome_arquivo"]}" descartado.')
+
+        else:
+            novos_pendentes = []
+            importados = 0
+
+            for i, item in enumerate(pendentes):
+                senha = request.POST.get(f"senha_{i}", "")
+
+                with default_storage.open(item["caminho"], "rb") as f:
+                    conteudo = f.read()
+
+                try:
+                    dados = extrair_dados_certificado(conteudo, senha)
+                except Exception:
+                    novos_pendentes.append(item)
+                    continue
+
+                certificado = Certificado(
+                    nome_empresa=dados["nome_empresa"],
+                    data_vencimento=dados["data_vencimento"],
+                    observacao=dados["nome_completo_cn"],
+                )
+                certificado.arquivo.save(item["nome_arquivo"], ContentFile(conteudo), save=False)
+                certificado.save()
+                default_storage.delete(item["caminho"])
+                importados += 1
+
+            pendentes = novos_pendentes
+
+            if importados:
+                messages.success(request, f"{importados} certificado(s) importado(s) com sucesso.")
+            if pendentes:
+                messages.warning(request, f"Ainda restam {len(pendentes)} certificado(s) com senha incorreta.")
+
+        request.session["certificados_pendentes"] = pendentes
+
+        if not pendentes:
+            return redirect("certificado_list")
+        return redirect("retentar_certificados")
+
+    return render(request, "core/retentar_certificados.html", {
+        "pendentes": list(enumerate(pendentes))
+    })
+    
 class CertificadoDeleteView(RequerExclusaoMixin, DeleteView):
     model = Certificado
     template_name = "core/confirm_delete.html"
@@ -1145,3 +1427,59 @@ def configuracao_sistema(request):
         form = ConfiguracaoSistemaForm(instance=config)
 
     return render(request, "core/configuracao_sistema.html", {"form": form})    
+
+@requer_edicao
+def importar_rotinas_excel(request):
+    from datetime import date
+
+    if request.method == "POST":
+        form = ImportarRotinasForm(request.POST, request.FILES)
+        if form.is_valid():
+            from .rotinas_import_utils import processar_planilha, importar_log_para_banco
+
+            try:
+                log = processar_planilha(request.FILES["arquivo"], ano_padrao=form.cleaned_data["ano"])
+            except Exception:
+                messages.error(
+                    request,
+                    "Não consegui ler esse arquivo. Confirme que é um .xlsx no mesmo formato do modelo."
+                )
+                return redirect("importar_rotinas_excel")
+
+            resultado = importar_log_para_banco(log)
+
+            messages.success(
+                request,
+                f"Importação concluída: {resultado['empresas_criadas']} empresa(s) nova(s), "
+                f"{resultado['empresas_existentes']} já existente(s), "
+                f"{resultado['obrigacoes_criadas']} obrigação(ões) nova(s), "
+                f"{resultado['cumprimentos_gravados']} status gravados."
+            )
+            return redirect("empresa_list")
+    else:
+        form = ImportarRotinasForm(initial={"ano": date.today().year})
+
+    return render(request, "core/importar_rotinas_excel.html", {"form": form})
+
+@login_required
+def vencimentos_list(request):
+    """
+    Painel único de tudo que está atrasado ou próximo de vencer.
+    Mostra TODOS os regimes tributários cadastrados (mesmo com zero
+    pendências) para deixar claro quando um regime está tudo em dia,
+    em vez de simplesmente sumir da tela.
+    """
+    cumprimentos = CumprimentoObrigacao.objects.filter(cumprido=False).select_related(
+        "competencia", "competencia__empresa", "competencia__empresa__regime_tributario", "obrigacao"
+    )
+
+    pendentes = [c for c in cumprimentos if c.status_calculado() in (1, 2)]
+    pendentes.sort(key=lambda c: c.data_vencimento_calculada())
+
+    por_regime = {regime.nome: [] for regime in RegimeTributario.objects.all()}
+    for cumprimento in pendentes:
+        regime = cumprimento.competencia.empresa.regime_tributario
+        nome_regime = regime.nome if regime else "Sem regime definido"
+        por_regime.setdefault(nome_regime, []).append(cumprimento)
+
+    return render(request, "core/vencimentos_list.html", {"por_regime": por_regime})

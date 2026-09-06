@@ -58,6 +58,7 @@
         }
 
         .campo { margin-bottom: 18px; }
+
         label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 14px; }
 
         input {
@@ -66,6 +67,24 @@
             border: 1px solid #ccc;
             border-radius: 6px;
             font-size: 15px;
+        }
+
+        .campo-senha { position: relative; }
+
+        .campo-senha input { padding-right: 40px; }
+
+        .botao-olho {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 4px;
+            width: auto;
+            margin-top: 0;
         }
 
         button {
@@ -103,17 +122,20 @@
             <div class="erro">Usuário ou senha inválidos.</div>
         {% endif %}
 
-        <form method="POST">
+        <form method="POST" autocomplete="off">
             {% csrf_token %}
 
             <div class="campo">
                 <label for="id_username">Usuário</label>
-                <input type="text" name="username" id="id_username" autofocus required>
+                <input type="text" name="username" id="id_username" autofocus required autocomplete="off">
             </div>
 
             <div class="campo">
                 <label for="id_password">Senha</label>
-                <input type="password" name="password" id="id_password" required>
+                <div class="campo-senha">
+                    <input type="password" name="password" id="id_password" required autocomplete="off">
+                    <button type="button" class="botao-olho" onclick="alternarSenha()" aria-label="Mostrar senha">👁</button>
+                </div>
             </div>
 
             <input type="hidden" name="next" value="{{ next }}">
@@ -121,6 +143,13 @@
             <button type="submit">Entrar</button>
         </form>
     </div>
+
+    <script>
+        function alternarSenha() {
+            const campo = document.getElementById('id_password');
+            campo.type = campo.type === 'password' ? 'text' : 'password';
+        }
+    </script>
 
 </body>
 </html>

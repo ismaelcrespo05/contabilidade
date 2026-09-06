@@ -1,0 +1,46 @@
+{% extends "core/panel_base.html" %}
+
+{% block title %}Importar Planilha de Rotinas{% endblock %}
+
+{% block content %}
+
+    <h1>Importar Planilha de Rotinas Fiscais</h1>
+
+    <div class="card" style="max-width:550px;">
+        <p style="color:#777; font-size:14px; margin-bottom:20px;">
+            Suba o Excel no mesmo formato da planilha modelo (abas "Dept.
+            Fiscal..."). As empresas que ainda não existirem são criadas só
+            com o nome — complete CNPJ, tipo e CNAE depois, quando quiser.
+        </p>
+
+        <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            {% for field in form %}
+                <div class="campo">
+                    {{ field.label_tag }}
+                    {{ field }}
+                    {% if field.errors %}
+                        <div class="errores">{{ field.errors }}</div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+
+            <div class="botoes">
+                <button type="submit" class="btn btn-primary">Importar</button>
+            </div>
+        </form>
+    </div>
+
+    <style>
+        .campo { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 7px; font-weight: bold; }
+        input {
+            width: 100%; padding: 10px; border: 1px solid #ccc;
+            border-radius: 6px; font-size: 15px;
+        }
+        .errores { color: #b00020; margin-top: 5px; font-size: 14px; }
+        .botoes { margin-top: 10px; }
+    </style>
+
+{% endblock %}

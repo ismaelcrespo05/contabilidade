@@ -66,6 +66,11 @@ urlpatterns = [
     path("painel/certificados/exportar/", views.exportar_certificados_excel, name="exportar_certificados_excel"),
     path("painel/certificados/lote/", views.certificados_lote, name="certificados_lote"),
     path("painel/certificados/importar/", views.importar_certificados_excel, name="importar_certificados_excel"),
-    
+    path("painel/certificados/importar-arquivo/", views.importar_certificados_arquivo, name="importar_certificados_arquivo"),
+    path("painel/certificados/retentar/", views.retentar_certificados, name="retentar_certificados"),
     path("painel/configuracoes/", views.configuracao_sistema, name="configuracao_sistema"),
+    path("painel/empresas/importar-rotinas/", views.importar_rotinas_excel, name="importar_rotinas_excel"),
+    path("painel/vencimentos/", views.vencimentos_list, name="vencimentos_list"),
+    path("painel/certificados/resolver-duplicados/", views.resolver_duplicados_certificados, name="resolver_duplicados_certificados"),
+    path("painel/certificados/excluir-selecionados/", views.excluir_certificados_selecionados, name="excluir_certificados_selecionados"),
 ]

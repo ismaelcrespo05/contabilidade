@@ -12,16 +12,29 @@
             {% if request.user|pode_editar %}
                 <a class="btn btn-secondary" href="{% url 'importar_comprovante' %}">Importar Comprovante</a>
                 <a class="btn btn-primary" href="{% url 'nova_empresa' %}">+ Nova Empresa</a>
+                <a class="btn btn-secondary" href="{% url 'importar_rotinas_excel' %}">Importar Planilha de Rotinas</a>
             {% endif %}
         </div>
     </div>
 
     <div class="card">
 
-        <form method="get" class="busca" style="margin-bottom:18px;">
-            <input type="text" name="q" placeholder="Buscar por razão social..."
-                   value="{{ request.GET.q }}">
-        </form>
+        <div style="display:flex; gap:12px; align-items:center; margin-bottom:18px; flex-wrap:wrap; justify-content:space-between;">
+            <form method="get" style="display:flex; gap:8px;">
+                <input type="text" name="q" value="{{ termo }}" placeholder="Buscar por razão social ou CNPJ..."
+                       style="padding:8px 12px; border:1px solid #ccc; border-radius:6px; font-size:14px;">
+                <input type="hidden" name="ordenar" value="{{ ordenar }}">
+                <button type="submit" class="btn btn-secondary btn-sm">Buscar</button>
+            </form>
+
+            <div class="acoes">
+                <span style="font-size:13px; color:#777; align-self:center;">Ordenar:</span>
+                <a class="btn btn-sm {% if ordenar == 'nome' %}btn-primary{% else %}btn-secondary{% endif %}"
+                   href="?q={{ termo }}&ordenar=nome">Nome (A-Z)</a>
+                <a class="btn btn-sm {% if ordenar == 'cnpj' %}btn-primary{% else %}btn-secondary{% endif %}"
+                   href="?q={{ termo }}&ordenar=cnpj">CNPJ</a>
+            </div>
+        </div>
 
         <table>
             <thead>

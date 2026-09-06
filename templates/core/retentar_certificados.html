@@ -1,0 +1,45 @@
+{% extends "core/panel_base.html" %}
+
+{% block title %}Certificados Pendentes de Senha{% endblock %}
+
+{% block content %}
+
+    <h1>Certificados Pendentes de Senha</h1>
+    <p style="color:#777; font-size:14px; margin-bottom:20px;">
+        Estes arquivos não abriram com a senha informada antes. Informe a
+        senha correta de cada um e clique em "Tentar novamente" — ou
+        descarte os que não quiser importar.
+    </p>
+
+    <div class="card">
+        <form method="POST">
+            {% csrf_token %}
+
+            {% for indice, item in pendentes %}
+                <div style="display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid #f0f0f0;">
+                    <span style="flex:1;">{{ item.nome_arquivo }}</span>
+                    <input type="password" name="senha_{{ indice }}" placeholder="Senha deste certificado"
+                           style="width:220px; padding:8px; border:1px solid #ccc; border-radius:6px;">
+                </div>
+            {% endfor %}
+
+            <div class="botoes" style="margin-top:20px;">
+                <button type="submit" class="btn btn-primary">Tentar novamente</button>
+                <a href="{% url 'certificado_list' %}" class="btn btn-secondary">Voltar para Certificados</a>
+            </div>
+        </form>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+        <h3 style="margin-bottom:12px;">Descartar individualmente</h3>
+        {% for indice, item in pendentes %}
+            <form method="POST" style="display:inline-block; margin:0 8px 8px 0;">
+                {% csrf_token %}
+                <input type="hidden" name="acao" value="descartar">
+                <input type="hidden" name="indice" value="{{ indice }}">
+                <button type="submit" class="btn btn-danger btn-sm">Descartar "{{ item.nome_arquivo }}"</button>
+            </form>
+        {% endfor %}
+    </div>
+
+{% endblock %}

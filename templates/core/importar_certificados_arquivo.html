@@ -1,0 +1,56 @@
+{% extends "core/panel_base.html" %}
+
+{% block title %}Importar Certificados (.pfx/.p12){% endblock %}
+
+{% block content %}
+
+    <h1>Importar Certificados a partir do Arquivo</h1>
+
+    <div class="card" style="max-width:600px;">
+        <p style="color:#777; font-size:14px; margin-bottom:20px;">
+            Informe a senha dos certificados e envie os arquivos — pode ser
+            um certificado, vários de uma vez, ou uma pasta inteira (o que
+            não for <strong>.pfx</strong>/<strong>.p12</strong> é ignorado
+            automaticamente). O nome e a data de vencimento são lidos direto
+            de dentro de cada certificado, sem precisar digitar nada.
+        </p>
+
+        <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <div class="campo">
+                <label for="senha">Senha dos certificados</label>
+                <input type="password" name="senha" id="senha" required>
+            </div>
+
+            <div class="campo">
+                <label for="arquivos">Certificado(s) (.pfx/.p12)</label>
+                <input type="file" name="arquivos" id="arquivos" accept=".pfx,.p12" multiple>
+            </div>
+
+            <div class="campo">
+                <label for="pasta">Ou selecione uma pasta inteira</label>
+                <input type="file" name="arquivos" id="pasta" webkitdirectory directory multiple>
+            </div>
+
+            <div class="botoes">
+                <button type="submit" class="btn btn-primary">Importar</button>
+            </div>
+        </form>
+    </div>
+
+    <style>
+        .campo { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 7px; font-weight: bold; }
+        input[type="password"] {
+            width: 100%; padding: 10px; border: 1px solid #ccc;
+            border-radius: 6px; font-size: 15px;
+        }
+        input[type="file"] {
+            width: 100%; padding: 10px; border: 1px solid #ccc;
+            border-radius: 6px; font-size: 14px; background: #fafafa;
+        }
+        .botoes { margin-top: 10px; }
+    </style>
+
+{% endblock %}

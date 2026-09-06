@@ -214,10 +214,21 @@ class ConfiguracaoSistemaForm(forms.ModelForm):
 
     class Meta:
         model = ConfiguracaoSistema
-        fields = ["dias_alerta_certificado"]
-        labels = {"dias_alerta_certificado": "Dias de antecedência para alerta (amarelo)"}
+        fields = [
+            "dias_alerta_certificado", "dias_alerta_obrigacao", "dias_alerta_imposto",
+            "notificacoes_sistema_ativas", "notificacoes_email_ativas",
+            "notificar_obrigacoes_proximas", "notificar_obrigacoes_vencidas",
+            "notificar_certificados_proximos", "notificar_erros_processamento",
+        ]
+        labels = {
+            "dias_alerta_certificado": "Dias de antecedência — Certificados",
+            "dias_alerta_obrigacao": "Dias de antecedência — Obrigações",
+            "dias_alerta_imposto": "Dias de antecedência — Impostos",
+        }
         widgets = {
             "dias_alerta_certificado": forms.NumberInput(attrs={"min": 1}),
+            "dias_alerta_obrigacao": forms.NumberInput(attrs={"min": 1}),
+            "dias_alerta_imposto": forms.NumberInput(attrs={"min": 1}),
         }
 
 # Formulário mínimo (só nome + data) usado na carga rápida em lote 
@@ -234,3 +245,10 @@ CertificadoRapidoFormSet = forms.modelformset_factory(
 
 class ImportarCertificadosExcelForm(forms.Form):
     arquivo = forms.FileField(label="Arquivo Excel (.xlsx)")
+    
+class ImportarRotinasForm(forms.Form):
+    arquivo = forms.FileField(label="Arquivo Excel (.xlsx)")
+    ano = forms.IntegerField(
+        label="Ano padrão (usado só quando a planilha não traz o ano nas datas)",
+        min_value=2000, max_value=2100
+    )    
