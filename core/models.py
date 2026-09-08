@@ -274,6 +274,12 @@ class CumprimentoObrigacao(models.Model):
         blank=True,
         help_text="Deixe em branco para o sistema calcular sozinho pela data de vencimento."
     )
+    
+    # Data de vencimento REAL desse mês específico, escolhida por você
+    # (não um "dia do mês" que se repete sozinho). A lei pode mudar de
+    # um ano para o outro, ou o dia pode cair num feriado — por isso
+    # cada competência tem sua própria data, editável à parte.
+    data_vencimento_manual = models.DateField(null=True, blank=True)
 
     class Meta:
         constraints = [
@@ -288,17 +294,27 @@ class CumprimentoObrigacao(models.Model):
         return f"{self.obrigacao} - {self.competencia} ({status})"
 
     def data_vencimento_calculada(self):
-        """
-        Mesma lógica usada em status_calculado(), exposta à parte para
-        poder ordenar e exibir a data real em telas como o painel de
-        vencimentos.
-        """
+        # Prioridade 1: a data que você escolheu manualmente para essa
+        # competência específica.
+        if self.data_vencimento_manual:
+            return self.data_vencimento_manual
+
+        # Prioridade 2 (só como sugestão inicial, enquanto você não
+        # define a data exata): dia fixo do mês, se a obrigação tiver.
         import calendar
         from datetime import date
 
         dia = self.obrigacao.dia_vencimento or 28
-        ultimo_dia_do_mes = calendar.monthrange(self.competencia.ano, self.competencia.mes)[1]
-        return date(self.competencia.ano, self.competencia.mes, min(dia, ultimo_dia_do_mes))
+        offset = getattr(self.obrigacao, "meses_apos_competencia", 0) or 0
+
+        mes = self.competencia.mes + offset
+        ano = self.competencia.ano
+        while mes > 12:
+            mes -= 12
+            ano += 1
+
+        ultimo_dia_do_mes = calendar.monthrange(ano, mes)[1]
+        return date(ano, mes, min(dia, ultimo_dia_do_mes))
 
     def status_calculado(self):
         if self.status_manual:
@@ -502,6 +518,11 @@ class ConfiguracaoSistema(models.Model):
         default=5,
         help_text="Quantos dias antes do vencimento um imposto já deve aparecer em amarelo."
     )
+    
+    email_notificacoes = models.EmailField(
+        blank=True,
+        help_text="Endereço que recebe os alertas por e-mail (deixe em branco para não enviar)."
+    )
 
     notificacoes_sistema_ativas = models.BooleanField(default=True, verbose_name="Notificações dentro do sistema")
     notificacoes_email_ativas = models.BooleanField(default=False, verbose_name="Alertas por e-mail")
@@ -602,3 +623,34 @@ class Certificado(models.Model):
 
     def __str__(self):
         return f"{self.nome_empresa} — {self.nome}"
+class Notificacao(models.Model):
+    """
+    Alerta gerado automaticamente (obrigação vencendo, certificado
+    vencendo, erro de processamento, etc.). A "chave" garante que a
+    mesma situação nunca gera duas notificações duplicadas.
+    """
+
+    TIPO_OBRIGACAO_PROXIMA = "OBRIGACAO_PROXIMA"
+    TIPO_OBRIGACAO_VENCIDA = "OBRIGACAO_VENCIDA"
+    TIPO_CERTIFICADO_PROXIMO = "CERTIFICADO_PROXIMO"
+    TIPO_ERRO_PROCESSAMENTO = "ERRO_PROCESSAMENTO"
+
+    TIPO_CHOICES = [
+        (TIPO_OBRIGACAO_PROXIMA, "Obrigação próxima a vencer"),
+        (TIPO_OBRIGACAO_VENCIDA, "Obrigação vencida"),
+        (TIPO_CERTIFICADO_PROXIMO, "Certificado próximo a vencer"),
+        (TIPO_ERRO_PROCESSAMENTO, "Erro de processamento"),
+    ]
+
+    chave = models.CharField(max_length=255, unique=True)
+    tipo = models.CharField(max_length=30, choices=TIPO_CHOICES)
+    mensagem = models.CharField(max_length=255)
+    link = models.CharField(max_length=255, blank=True)
+    lida = models.BooleanField(default=False)
+    data_criacao = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-data_criacao"]
+
+    def __str__(self):
+        return self.mensagem    

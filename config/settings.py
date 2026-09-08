@@ -135,3 +135,4 @@ MAILERS = {
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'painel_dashboard'
 LOGOUT_REDIRECT_URL = 'login'
+

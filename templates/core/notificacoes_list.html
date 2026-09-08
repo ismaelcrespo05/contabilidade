@@ -1,0 +1,31 @@
+{% extends "core/panel_base.html" %}
+
+{% block title %}Notificações{% endblock %}
+
+{% block content %}
+
+    <div class="top-bar">
+        <h1 style="margin:0;">Notificações</h1>
+        <a class="btn btn-secondary" href="{% url 'marcar_todas_lidas' %}">Marcar todas como lidas</a>
+    </div>
+
+    <div class="card">
+        {% for notificacao in notificacoes %}
+            <div class="{% if notificacao.lida %}notificacao-lida{% endif %}" style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid #f0f0f0;">
+                <div>
+                    <span class="status-pill status-PENDENTE">{{ notificacao.get_tipo_display }}</span>
+                    <span style="margin-left:8px;">{{ notificacao.mensagem }}</span>
+                    <div style="font-size:12px; color:#999; margin-top:4px;">{{ notificacao.data_criacao|date:"d/m/Y H:i" }}</div>
+                </div>
+                {% if not notificacao.lida %}
+                    <a class="btn btn-secondary btn-sm" href="{% url 'marcar_notificacao_lida' pk=notificacao.pk %}">
+                        {% if notificacao.link %}Ver e marcar como lida{% else %}Marcar como lida{% endif %}
+                    </a>
+                {% endif %}
+            </div>
+        {% empty %}
+            <p style="color:#777;">Nenhuma notificação ainda.</p>
+        {% endfor %}
+    </div>
+
+{% endblock %}

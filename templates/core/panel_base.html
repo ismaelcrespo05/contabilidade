@@ -14,16 +14,26 @@
             font-family: Arial, sans-serif;
             background: #f5f6f8;
             color: #222;
-            display: flex;
         }
 
         .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 240px;
-            min-height: 100vh;
+            height: 100vh;
+            overflow-y: auto;
             background: #27313a;
             color: #fff;
             padding: 25px 0;
             flex-shrink: 0;
+        }
+
+        .sidebar::-webkit-scrollbar { width: 7px; }
+        .sidebar::-webkit-scrollbar-track { background: #202930; }
+        .sidebar::-webkit-scrollbar-thumb {
+            background: #697681;
+            border-radius: 4px;
         }
 
         .sidebar h2 {
@@ -57,7 +67,7 @@
         }
 
         .content {
-            flex: 1;
+            margin-left: 240px;
             padding: 35px 40px;
             max-width: 1100px;
         }
@@ -102,6 +112,13 @@
             font-size: 14px;
             border: none;
             cursor: pointer;
+            transition: transform 0.15s ease, filter 0.15s ease;
+        }
+
+        .btn:hover {
+            transform: scale(0.96);
+            filter: brightness(0.92);
+            cursor: pointer;
         }
 
         .btn-primary { background: #27313a; color: #fff; }
@@ -137,8 +154,51 @@
         .status-PAGO { background: #e6f4ea; color: #1e6b3a; }
         .status-ATRASADO { background: #fde2e2; color: #b00020; }
         .status-DISPENSADO { background: #eee; color: #666; }
+        .notificacao-lida { opacity: 0.5; }
     </style>
 </head>
+<script>
+function tocarSomNotificacao() {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 880;
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.2);
+    } catch (e) {}
+}
+
+function verificarNotificacoes() {
+    fetch("{% url 'notificacoes_json' %}")
+        .then(r => r.json())
+        .then(dados => {
+            const contador = document.getElementById('contador-notificacoes');
+            const anterior = parseInt(localStorage.getItem('trinus_notif_count') || '0');
+
+            if (dados.total_nao_lidas > 0) {
+                contador.style.display = 'inline';
+                contador.textContent = dados.total_nao_lidas;
+            } else {
+                contador.style.display = 'none';
+            }
+
+            if (dados.total_nao_lidas > anterior) {
+                tocarSomNotificacao();
+                if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+            }
+
+            localStorage.setItem('trinus_notif_count', dados.total_nao_lidas);
+        })
+        .catch(() => {});
+}
+
+verificarNotificacoes();
+setInterval(verificarNotificacoes, 30000);
+</script>
 <body>
 
     <nav class="sidebar">
@@ -157,6 +217,10 @@
         <a href="{% url 'catalogo_list' slug='cnae' %}">CNAE</a>
         <a href="{% url 'catalogo_list' slug='obrigacoes' %}">Obrigações Acessórias</a>
         <a href="{% url 'catalogo_list' slug='fornecedores' %}">Fornecedores</a>
+        <a href="{% url 'notificacoes_list' %}" style="position:relative;">
+    🔔 Notificações
+    <span id="contador-notificacoes" style="background:#b00020; color:#fff; border-radius:10px; padding:1px 7px; font-size:11px; display:none; margin-left:6px;"></span>
+</a>
 
                 <div class="grupo-titulo">Outros</div>
 

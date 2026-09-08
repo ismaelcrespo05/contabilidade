@@ -73,4 +73,12 @@ urlpatterns = [
     path("painel/vencimentos/", views.vencimentos_list, name="vencimentos_list"),
     path("painel/certificados/resolver-duplicados/", views.resolver_duplicados_certificados, name="resolver_duplicados_certificados"),
     path("painel/certificados/excluir-selecionados/", views.excluir_certificados_selecionados, name="excluir_certificados_selecionados"),
+    
+    # Notificações
+    path("painel/notificacoes/json/", views.notificacoes_json, name="notificacoes_json"),
+    path("painel/notificacoes/", views.notificacoes_list, name="notificacoes_list"),
+    path("painel/notificacoes/<int:pk>/lida/", views.marcar_notificacao_lida, name="marcar_notificacao_lida"),
+    path("painel/notificacoes/marcar-todas/", views.marcar_todas_lidas, name="marcar_todas_lidas"),
+    
+    path("painel/cumprimentos/<int:pk>/vencimento/", views.atualizar_vencimento_cumprimento, name="atualizar_vencimento_cumprimento"),
 ]

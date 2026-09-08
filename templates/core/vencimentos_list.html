@@ -4,57 +4,133 @@
 
 {% block content %}
 
-    <h1>Vencimentos — Obrigações Pendentes</h1>
-    <p style="color:#777; font-size:14px; margin-bottom:24px;">
-        Só aparecem aqui obrigações em risco ou atrasadas, ordenadas da
-        mais urgente para a menos urgente. As que já estão em dia (verde)
-        não aparecem — não precisam de atenção agora.
+    <h1>Vencimentos</h1>
+    <p style="color:#777; font-size:14px; margin-bottom:16px;">
+        Cada empresa aparece uma vez, com suas obrigações e impostos
+        pendentes logo abaixo.
     </p>
 
-    {% for regime, cumprimentos in por_regime.items %}
-        <h2 style="color:#27313a; margin-bottom:10px;">{{ regime }} ({{ cumprimentos|length }})</h2>
+    <form method="get" style="margin-bottom:10px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <input type="hidden" name="aba" value="{{ aba_selecionada }}">
+        <input type="text" name="q" value="{{ termo }}" placeholder="Buscar por empresa, obrigação ou imposto..."
+               style="padding:9px 12px; border:1px solid #ccc; border-radius:6px; font-size:14px; width:300px;">
 
-        <div class="card" style="margin-bottom:30px;">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Vencimento</th>
-                        <th>Empresa</th>
-                        <th>Obrigação</th>
-                        <th>Status</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for cumprimento in cumprimentos %}
-                        <tr>
-                            <td>{{ cumprimento.data_vencimento_calculada|date:"d/m/Y" }}</td>
-                            <td>{{ cumprimento.competencia.empresa.razao_social }}</td>
-                            <td>{{ cumprimento.obrigacao.nome }}</td>
-                            <td>
-                                <span class="status-pill status-semaforo-{{ cumprimento.status_calculado }}">
-                                    {{ cumprimento.status_calculado_display }}
-                                </span>
-                            </td>
-                            <td class="acoes">
-                                <a class="btn btn-secondary btn-sm"
-                                   href="{% url 'competencia_detail' pk=cumprimento.competencia_id %}">Ver</a>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <select name="status" onchange="this.form.submit()" style="padding:9px; border:1px solid #ccc; border-radius:6px;">
+            <option value="todas" {% if filtro_status == "todas" %}selected{% endif %}>Todas</option>
+            <option value="1" {% if filtro_status == "1" %}selected{% endif %}>Atrasadas</option>
+            <option value="2" {% if filtro_status == "2" %}selected{% endif %}>Risco de atraso</option>
+            <option value="3" {% if filtro_status == "3" %}selected{% endif %}>Em dia</option>
+        </select>
+
+        <div class="acoes">
+            <span style="font-size:13px; color:#777; align-self:center;">Ordenar:</span>
+            <button type="submit" name="ordenar" value="vencimento" class="btn btn-sm {% if ordenar == 'vencimento' %}btn-primary{% else %}btn-secondary{% endif %}">Vencimento</button>
+            <button type="submit" name="ordenar" value="nome" class="btn btn-sm {% if ordenar == 'nome' %}btn-primary{% else %}btn-secondary{% endif %}">Alfabética</button>
         </div>
-    {% empty %}
-        <div class="card">
-            <p style="color:#777;">Nenhuma obrigação em risco ou atrasada no momento. 🎉</p>
+
+        <button type="submit" class="btn btn-secondary btn-sm">Buscar</button>
+    </form>
+
+    <div class="abas-vencimentos">
+        {% for aba in abas %}
+            <button type="button" class="aba-botao {% if aba.ativa %}ativa{% endif %}"
+                    data-alvo="{{ aba.chave }}" onclick="mostrarAbaVencimento(this)">
+                {{ aba.titulo }} ({{ aba.empresas|length }})
+            </button>
+        {% endfor %}
+    </div>
+
+    {% for aba in abas %}
+        <div class="painel-aba-vencimento {% if not aba.ativa %}oculta{% endif %}" id="painel-{{ aba.chave }}">
+
+            {% for empresa in aba.empresas %}
+                <div class="bloco-empresa">
+                    <div class="empresa-cabecalho">{{ empresa.nome }}</div>
+
+                    {% for item in empresa.itens %}
+                        <div class="linha-item">
+                            <span class="item-tipo-icone">{% if item.tipo == "imposto" %}💰{% else %}📄{% endif %}</span>
+                            <span class="item-nome">{{ item.nome }}</span>
+                            <span class="status-pill status-semaforo-{{ item.status }}">
+                                {% if item.status == 1 %}Atrasada{% elif item.status == 2 %}Risco{% else %}Em dia{% endif %}
+                            </span>
+
+                            {% if item.tipo == "obrigacao" %}
+                                <form method="POST" action="{% url 'atualizar_vencimento_cumprimento' pk=item.pk %}"
+                                      style="display:flex; gap:4px; align-items:center; margin-left:auto;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="aba" value="{{ aba.chave }}">
+                                    <input type="date" name="data_vencimento" value="{{ item.vencimento|date:'Y-m-d' }}"
+                                           style="padding:4px; border:1px solid #ccc; border-radius:4px; font-size:13px;">
+                                    <button type="submit" class="btn btn-secondary btn-sm">Salvar</button>
+                                </form>
+                            {% else %}
+                                <span style="margin-left:auto; font-size:13px; color:#555;">{{ item.vencimento|date:"d/m/Y" }}</span>
+                                <a class="btn btn-secondary btn-sm" href="{% url 'editar_apuracao' pk=item.pk %}">Editar</a>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% empty %}
+                <div class="card"><p style="color:#777;">Nenhuma pendência neste regime.</p></div>
+            {% endfor %}
+
         </div>
     {% endfor %}
 
     <style>
+        .abas-vencimentos {
+            display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap;
+            border-bottom: 2px solid #eee;
+        }
+        .aba-botao {
+            padding: 10px 18px; border: none; background: none; cursor: pointer;
+            font-size: 14px; font-weight: bold; color: #777;
+            border-bottom: 3px solid transparent; margin-bottom: -2px;
+            transition: color 0.15s ease;
+        }
+        .aba-botao.ativa { color: #27313a; border-bottom-color: #27313a; }
+        .painel-aba-vencimento.oculta { display: none; }
+
+        .bloco-empresa {
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 14px;
+            overflow: hidden;
+        }
+        .empresa-cabecalho {
+            background: #27313a;
+            color: #fff;
+            padding: 10px 16px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .linha-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+        }
+        .linha-item:last-child { border-bottom: none; }
+        .item-tipo-icone { font-size: 14px; }
+        .item-nome { min-width: 220px; }
+
         .status-semaforo-3 { background: #e6f4ea; color: #1e6b3a; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
         .status-semaforo-2 { background: #fff3cd; color: #8a6500; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
         .status-semaforo-1 { background: #fde2e2; color: #b00020; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
     </style>
+
+    <script>
+        function mostrarAbaVencimento(botao) {
+            document.querySelectorAll('.aba-botao').forEach(b => b.classList.remove('ativa'));
+            document.querySelectorAll('.painel-aba-vencimento').forEach(p => p.classList.add('oculta'));
+
+            botao.classList.add('ativa');
+            document.getElementById('painel-' + botao.dataset.alvo).classList.remove('oculta');
+        }
+    </script>
 
 {% endblock %}

@@ -8,7 +8,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from .forms import EmpresaForm, CompetenciaForm, ApuracaoImpostoForm, DocumentoForm, EditarUsuarioForm, ImportarRotinasForm, NovoUsuarioForm, LancamentoContabilForm, CertificadoForm, CertificadoRapidoFormSet,  ConfiguracaoSistemaForm
 from .models import (
     TipoEmpresa, RegimeTributario, Imposto, CNAE, ObrigacaoAcessoria,
-    Empresa, Competencia, ApuracaoImposto, CumprimentoObrigacao, Documento, Fornecedor, LancamentoContabil, ConfiguracaoSistema, Certificado
+    Empresa, Competencia, ApuracaoImposto, CumprimentoObrigacao, Documento, Fornecedor, LancamentoContabil, ConfiguracaoSistema, Certificado, Notificacao
     )
 
 from django.contrib.auth.models import User
@@ -1461,25 +1461,186 @@ def importar_rotinas_excel(request):
 
     return render(request, "core/importar_rotinas_excel.html", {"form": form})
 
+# ---------------------------------------------------------------------
+# --------------------------------------------------------------------
+#      VENCIMIENTOS
+# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+
 @login_required
 def vencimentos_list(request):
     """
-    Painel único de tudo que está atrasado ou próximo de vencer.
-    Mostra TODOS os regimes tributários cadastrados (mesmo com zero
-    pendências) para deixar claro quando um regime está tudo em dia,
-    em vez de simplesmente sumir da tela.
+    Painel de vencimentos agrupado por empresa (obrigações e impostos
+    juntos, debaixo de cada uma), separado por regime tributário em
+    abas. Filtros: status (todas/atrasada/risco/em dia), busca por
+    texto, e ordenação (mais próximo do vencimento ou alfabética).
     """
+    termo = request.GET.get("q", "").strip().lower()
+    ordenar = request.GET.get("ordenar", "vencimento")
+    filtro_status = request.GET.get("status", "todas")
+    aba_selecionada = request.GET.get("aba", "")
+
+    def status_bate(status_num):
+        return filtro_status == "todas" or str(status_num) == filtro_status
+
     cumprimentos = CumprimentoObrigacao.objects.filter(cumprido=False).select_related(
-        "competencia", "competencia__empresa", "competencia__empresa__regime_tributario", "obrigacao"
+        "competencia__empresa__regime_tributario", "obrigacao"
     )
+    impostos_qs = ApuracaoImposto.objects.filter(
+        status__in=["PENDENTE", "ATRASADO"]
+    ).select_related("competencia__empresa__regime_tributario", "imposto")
 
-    pendentes = [c for c in cumprimentos if c.status_calculado() in (1, 2)]
-    pendentes.sort(key=lambda c: c.data_vencimento_calculada())
+    por_regime = {regime.nome: {} for regime in RegimeTributario.objects.all()}
 
-    por_regime = {regime.nome: [] for regime in RegimeTributario.objects.all()}
-    for cumprimento in pendentes:
-        regime = cumprimento.competencia.empresa.regime_tributario
-        nome_regime = regime.nome if regime else "Sem regime definido"
-        por_regime.setdefault(nome_regime, []).append(cumprimento)
+    for cumprimento in cumprimentos:
+        status = cumprimento.status_calculado()
+        if not status_bate(status):
+            continue
 
-    return render(request, "core/vencimentos_list.html", {"por_regime": por_regime})
+        empresa = cumprimento.competencia.empresa
+        if termo and termo not in empresa.razao_social.lower() and termo not in cumprimento.obrigacao.nome.lower():
+            continue
+
+        regime_nome = empresa.regime_tributario.nome if empresa.regime_tributario else "Sem regime definido"
+        empresas_dict = por_regime.setdefault(regime_nome, {})
+        empresas_dict.setdefault(empresa.razao_social, []).append({
+            "tipo": "obrigacao",
+            "nome": cumprimento.obrigacao.nome,
+            "vencimento": cumprimento.data_vencimento_calculada(),
+            "status": status,
+            "pk": cumprimento.pk,
+        })
+
+    for apuracao in impostos_qs:
+        status = 1 if apuracao.status == "ATRASADO" else 3
+        if not status_bate(status):
+            continue
+
+        empresa = apuracao.competencia.empresa
+        if termo and termo not in empresa.razao_social.lower() and termo not in apuracao.imposto.nome.lower():
+            continue
+
+        regime_nome = empresa.regime_tributario.nome if empresa.regime_tributario else "Sem regime definido"
+        empresas_dict = por_regime.setdefault(regime_nome, {})
+        empresas_dict.setdefault(empresa.razao_social, []).append({
+            "tipo": "imposto",
+            "nome": apuracao.imposto.nome,
+            "vencimento": apuracao.data_vencimento,
+            "status": status,
+            "pk": apuracao.pk,
+        })
+
+    abas = []
+    for i, (regime_nome, empresas_dict) in enumerate(por_regime.items()):
+        lista_empresas = []
+        for nome_empresa, itens in empresas_dict.items():
+            itens_validos = [it for it in itens if it["vencimento"]]
+            if not itens_validos:
+                continue
+            itens_validos.sort(key=lambda it: it["vencimento"])
+            lista_empresas.append({
+                "nome": nome_empresa,
+                "itens": itens_validos,
+                "mais_proximo": itens_validos[0]["vencimento"],
+            })
+
+        if ordenar == "nome":
+            lista_empresas.sort(key=lambda e: e["nome"].lower())
+        else:
+            lista_empresas.sort(key=lambda e: e["mais_proximo"])
+
+        abas.append({"chave": f"regime-{i}", "titulo": regime_nome, "empresas": lista_empresas})
+
+    chaves_abas = {a["chave"] for a in abas}
+    if aba_selecionada not in chaves_abas:
+        aba_selecionada = abas[0]["chave"] if abas else ""
+    for aba in abas:
+        aba["ativa"] = aba["chave"] == aba_selecionada
+
+    return render(request, "core/vencimentos_list.html", {
+        "abas": abas,
+        "termo": termo,
+        "ordenar": ordenar,
+        "filtro_status": filtro_status,
+        "aba_selecionada": aba_selecionada,
+    })
+
+@requer_edicao
+def atualizar_vencimento_cumprimento(request, pk):
+    """
+    Guarda a DATA COMPLETA de vencimento escolhida por você para essa
+    obrigação, nesse mês específico — não um dia recorrente automático.
+    """
+    from datetime import datetime
+
+    cumprimento = get_object_or_404(CumprimentoObrigacao, pk=pk)
+
+    if request.method == "POST":
+        valor = request.POST.get("data_vencimento")
+        try:
+            nova_data = datetime.strptime(valor, "%Y-%m-%d").date()
+            cumprimento.data_vencimento_manual = nova_data
+            cumprimento.save()
+            messages.success(request, "Data de vencimento atualizada.")
+        except (TypeError, ValueError):
+            messages.error(request, "Data inválida.")
+
+    aba = request.POST.get("aba", "")
+    if aba:
+        return redirect(f"/painel/vencimentos/?aba={aba}")
+    return redirect(request.META.get("HTTP_REFERER") or "vencimentos_list")
+
+@login_required
+def notificacoes_json(request):
+    """
+    La campanita llama a esta URL cada cierto tiempo (JS). Genera
+    notificações nuevas como mucho cada 15 minutos (no en cada llamada,
+    para no recorrer toda la base de datos todo el rato).
+    """
+    from datetime import timedelta, datetime
+    from django.utils import timezone
+    from django.http import JsonResponse
+    from .notificacoes import gerar_notificacoes
+
+    agora = timezone.now()
+    ultima = request.session.get("ultima_geracao_notificacoes")
+
+    deve_gerar = True
+    if ultima:
+        deve_gerar = (agora - datetime.fromisoformat(ultima)) > timedelta(minutes=15)
+
+    if deve_gerar:
+        gerar_notificacoes()
+        request.session["ultima_geracao_notificacoes"] = agora.isoformat()
+
+    nao_lidas = Notificacao.objects.filter(lida=False)[:20]
+
+    return JsonResponse({
+        "total_nao_lidas": Notificacao.objects.filter(lida=False).count(),
+        "notificacoes": [
+            {"id": n.id, "mensagem": n.mensagem, "link": n.link, "tipo": n.tipo}
+            for n in nao_lidas
+        ],
+    })
+
+
+@login_required
+def notificacoes_list(request):
+    notificacoes = Notificacao.objects.all()[:200]
+    return render(request, "core/notificacoes_list.html", {"notificacoes": notificacoes})
+
+
+@login_required
+def marcar_notificacao_lida(request, pk):
+    notificacao = get_object_or_404(Notificacao, pk=pk)
+    notificacao.lida = True
+    notificacao.save()
+    return redirect(notificacao.link or "notificacoes_list")
+
+
+@login_required
+def marcar_todas_lidas(request):
+    Notificacao.objects.filter(lida=False).update(lida=True)
+    messages.success(request, "Todas as notificações foram marcadas como lidas.")
+    return redirect("notificacoes_list")
+ 

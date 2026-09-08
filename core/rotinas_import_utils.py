@@ -44,14 +44,13 @@ def _linhas_mescladas_largura_total(aba):
 
 def processar_planilha(caminho, ano_padrao):
     """
-    Lê o arquivo (caminho no disco ou arquivo já aberto, tipo
-    request.FILES["arquivo"]) e devolve uma lista de eventos:
+    Lê o arquivo e devolve uma lista de eventos:
       ("empresa", nome_do_regime, nome_da_empresa)
       ("obrigacao", nome_da_empresa, nome_da_obrigacao, [(mes, ano, status), ...])
 
-    Entende os dois estilos de planilha que aparecem no arquivo modelo:
-    cabeçalho de meses em texto sem ano (usa ano_padrao) e cabeçalho com
-    datas reais por empresa (usa o ano de cada data, quando disponível).
+    Não tenta adivinhar sozinho QUANDO uma obrigação vence — isso fica
+    100% a critério do usuário, editável tela a tela. Só importa o
+    status (verde/amarelo/vermelho) que já estava na planilha.
     """
     import openpyxl
     workbook = openpyxl.load_workbook(caminho, data_only=True)
@@ -130,11 +129,9 @@ def processar_planilha(caminho, ano_padrao):
 
 def importar_log_para_banco(log):
     """
-    Recebe o "log" de processar_planilha() e grava tudo no banco: cria/
-    reaproveita RegimeTributario e Empresa (só com o nome, se ainda não
-    existir), ObrigacaoAcessoria, Competencia e CumprimentoObrigacao
-    (status gravado em status_manual). Idempotente: rodar de novo com a
-    mesma planilha não duplica nada.
+    Recebe o "log" retornado por processar_planilha() e grava tudo no
+    banco. Idempotente: rodar de novo com a mesma planilha não duplica
+    nada.
     """
     from .models import (
         RegimeTributario, Empresa, ObrigacaoAcessoria, Competencia,
