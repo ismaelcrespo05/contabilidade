@@ -1,5 +1,6 @@
 import re
 from datetime import datetime
+from django.db import transaction
 
 NOMES_MESES = {
     "janeiro": 1, "fevereiro": 2, "março": 3, "marco": 3, "abril": 4,
@@ -8,6 +9,19 @@ NOMES_MESES = {
 }
 
 LABELS_IGNORADOS = {"rotinas fiscais"}
+
+
+def _normalizar_cnpj(valor):
+    """Devolve o CNPJ no formato único usado pelo sistema, ou None."""
+    digitos = re.sub(r"\D", "", str(valor or ""))
+    if len(digitos) != 14:
+        return None
+    return f"{digitos[:2]}.{digitos[2:5]}.{digitos[5:8]}/{digitos[8:12]}-{digitos[12:]}"
+
+
+def _extrair_cnpj(texto):
+    encontrado = re.search(r"(?:\d[.\s-]*){2}(?:\d[.\s-]*){3}(?:\d[.\s-]*){3}[/.\s-]*(?:\d[.\s-]*){4}[\s-]*(?:\d[.\s-]*){2}", texto)
+    return _normalizar_cnpj(encontrado.group(0)) if encontrado else None
 
 
 def _extrair_regime_do_titulo(aba):
@@ -84,9 +98,12 @@ def processar_planilha(caminho, ano_padrao):
                 if texto.lower() in LABELS_IGNORADOS:
                     continue
 
-                empresa_atual = texto
+                cnpj_empresa = _extrair_cnpj(texto)
+                # Alguns modelos colocam el CNPJ junto al nombre de la empresa.
+                # Lo quitamos del nombre, pero lo conservamos como identificador.
+                empresa_atual = re.sub(r"\s*[-–—|]?\s*" + re.escape(cnpj_empresa), "", texto).strip() if cnpj_empresa else texto
                 col_nome = c_nome
-                log.append(("empresa", regime_nome, empresa_atual))
+                log.append(("empresa", regime_nome, empresa_atual, cnpj_empresa))
                 continue
 
             if col_nome is None:
@@ -127,6 +144,7 @@ def processar_planilha(caminho, ano_padrao):
     return log
 
 
+@transaction.atomic
 def importar_log_para_banco(log):
     """
     Recebe o "log" retornado por processar_planilha() e grava tudo no
@@ -144,18 +162,43 @@ def importar_log_para_banco(log):
     cumprimentos_gravados = 0
 
     cache_empresas = {}
+    empresas_importadas = set()
+    anos_importados = set()
 
     for item in log:
         if item[0] == "empresa":
-            _, regime_nome, nome_empresa = item
+            _, regime_nome, nome_empresa, cnpj = item
 
             regime, _ = RegimeTributario.objects.get_or_create(nome=regime_nome)
 
-            empresa, criada = Empresa.objects.get_or_create(
-                razao_social=nome_empresa,
-                regime_tributario=regime,
-            )
+            empresa = Empresa.objects.filter(cnpj=cnpj).first() if cnpj else None
+            if not empresa:
+                # Planilhas antigas não têm CNPJ. Neste caso, só usamos o nome
+                # como compatibilidade; arquivos novos devem sempre trazer CNPJ.
+                empresa = Empresa.objects.filter(razao_social__iexact=nome_empresa).first()
+
+            criada = empresa is None
+            if criada:
+                empresa = Empresa.objects.create(
+                    razao_social=nome_empresa, regime_tributario=regime, cnpj=cnpj
+                )
+            else:
+                # Atualiza os dados cadastrais sem apagar impostos, obrigações
+                # ou qualquer competência/histórico já existente.
+                alterou = False
+                if cnpj and empresa.cnpj != cnpj:
+                    empresa.cnpj = cnpj
+                    alterou = True
+                if empresa.razao_social != nome_empresa:
+                    empresa.razao_social = nome_empresa
+                    alterou = True
+                if empresa.regime_tributario_id != regime.id:
+                    empresa.regime_tributario = regime
+                    alterou = True
+                if alterou:
+                    empresa.save()
             cache_empresas[nome_empresa] = empresa
+            empresas_importadas.add(empresa.id)
 
             if criada:
                 empresas_criadas += 1
@@ -178,15 +221,45 @@ def importar_log_para_banco(log):
                 empresa.obrigacoes_acessorias.add(obrigacao)
 
             for mes, ano, status in valores:
+                anos_importados.add(ano)
                 competencia, _ = Competencia.objects.get_or_create(
                     empresa=empresa, ano=ano, mes=mes
                 )
                 cumprimento, _ = CumprimentoObrigacao.objects.get_or_create(
                     competencia=competencia, obrigacao=obrigacao
                 )
+                # A planilha importada é a fonte de verdade para esse mês.
+                # Isso permite corrigir tanto o status quanto uma importação
+                # anterior que tenha marcado o mês de forma incorreta.
                 cumprimento.status_manual = status
-                cumprimento.save()
+                cumprimento.cumprido = status == CumprimentoObrigacao.STATUS_CONCLUIDA
+                if not cumprimento.cumprido:
+                    cumprimento.data_cumprimento = None
+                cumprimento.save(update_fields=[
+                    "status_manual", "cumprido", "data_cumprimento"
+                ])
                 cumprimentos_gravados += 1
+
+    # O Excel novo substitui os anos anteriores para as empresas e
+    # obrigações que ele próprio trouxe. Assim, uma correção de 2018 para
+    # 2026 não deixa os cumprimentos antigos aparecendo em Vencimentos.
+    from .models import Competencia
+
+    if empresas_importadas and anos_importados:
+        CumprimentoObrigacao.objects.filter(
+            competencia__empresa_id__in=empresas_importadas,
+        ).exclude(
+            competencia__ano__in=anos_importados,
+        ).delete()
+
+        Competencia.objects.filter(
+            empresa_id__in=empresas_importadas,
+        ).exclude(
+            ano__in=anos_importados,
+        ).filter(
+            cumprimentos_obrigacao__isnull=True,
+            apuracoes_imposto__isnull=True,
+        ).delete()
 
     return {
         "empresas_criadas": empresas_criadas,

@@ -1469,12 +1469,8 @@ def importar_rotinas_excel(request):
 
 @login_required
 def vencimentos_list(request):
-    """
-    Painel de vencimentos agrupado por empresa (obrigações e impostos
-    juntos, debaixo de cada uma), separado por regime tributário em
-    abas. Filtros: status (todas/atrasada/risco/em dia), busca por
-    texto, e ordenação (mais próximo do vencimento ou alfabética).
-    """
+    from datetime import date
+
     termo = request.GET.get("q", "").strip().lower()
     ordenar = request.GET.get("ordenar", "vencimento")
     filtro_status = request.GET.get("status", "todas")
@@ -1483,12 +1479,24 @@ def vencimentos_list(request):
     def status_bate(status_num):
         return filtro_status == "todas" or str(status_num) == filtro_status
 
-    cumprimentos = CumprimentoObrigacao.objects.filter(cumprido=False).select_related(
+    def texto_dias(vencimento):
+        if not vencimento:
+            return ""
+        diff = (vencimento - date.today()).days
+        if diff < 0:
+            return f"Vencida há {abs(diff)} dia(s)"
+        if diff == 0:
+            return "Vence hoje"
+        return f"Faltam {diff} dia(s)"
+
+    # (mantemos cumprido=True também na consulta, porque "Concluída" precisa aparecer)
+    cumprimentos = CumprimentoObrigacao.objects.select_related(
         "competencia__empresa__regime_tributario", "obrigacao"
     )
-    impostos_qs = ApuracaoImposto.objects.filter(
-        status__in=["PENDENTE", "ATRASADO"]
-    ).select_related("competencia__empresa__regime_tributario", "imposto")
+    impostos_qs = ApuracaoImposto.objects.exclude(status="DISPENSADO").select_related(
+        "competencia__empresa__regime_tributario", "imposto"
+    )
+    config = ConfiguracaoSistema.obter()
 
     por_regime = {regime.nome: {} for regime in RegimeTributario.objects.all()}
 
@@ -1503,16 +1511,30 @@ def vencimentos_list(request):
 
         regime_nome = empresa.regime_tributario.nome if empresa.regime_tributario else "Sem regime definido"
         empresas_dict = por_regime.setdefault(regime_nome, {})
+        vencimento = cumprimento.data_vencimento_calculada()
         empresas_dict.setdefault(empresa.razao_social, []).append({
             "tipo": "obrigacao",
+            "empresa_id": empresa.pk,
             "nome": cumprimento.obrigacao.nome,
-            "vencimento": cumprimento.data_vencimento_calculada(),
+            "vencimento": vencimento,
+            "dias_texto": texto_dias(vencimento),
             "status": status,
+            "concluida": cumprimento.cumprido,
             "pk": cumprimento.pk,
         })
 
     for apuracao in impostos_qs:
-        status = 1 if apuracao.status == "ATRASADO" else 3
+        if apuracao.status == "PAGO":
+            status = CumprimentoObrigacao.STATUS_CONCLUIDA
+        elif not apuracao.data_vencimento:
+            status = 0
+        elif date.today() > apuracao.data_vencimento:
+            status = CumprimentoObrigacao.STATUS_ATRASADA
+        elif (apuracao.data_vencimento - date.today()).days <= config.dias_alerta_imposto:
+            status = CumprimentoObrigacao.STATUS_RISCO
+        else:
+            status = CumprimentoObrigacao.STATUS_EM_DIA
+
         if not status_bate(status):
             continue
 
@@ -1524,9 +1546,12 @@ def vencimentos_list(request):
         empresas_dict = por_regime.setdefault(regime_nome, {})
         empresas_dict.setdefault(empresa.razao_social, []).append({
             "tipo": "imposto",
+            "empresa_id": empresa.pk,
             "nome": apuracao.imposto.nome,
             "vencimento": apuracao.data_vencimento,
+            "dias_texto": texto_dias(apuracao.data_vencimento),
             "status": status,
+            "concluida": apuracao.status == "PAGO",
             "pk": apuracao.pk,
         })
 
@@ -1534,14 +1559,19 @@ def vencimentos_list(request):
     for i, (regime_nome, empresas_dict) in enumerate(por_regime.items()):
         lista_empresas = []
         for nome_empresa, itens in empresas_dict.items():
-            itens_validos = [it for it in itens if it["vencimento"]]
-            if not itens_validos:
-                continue
-            itens_validos.sort(key=lambda it: it["vencimento"])
+            itens.sort(key=lambda it: (it["vencimento"] is None, it["vencimento"]))
+
+            contagem = {1: 0, 2: 0, 3: 0, 4: 0}
+            for it in itens:
+                if it["status"] in contagem:
+                    contagem[it["status"]] += 1
+
             lista_empresas.append({
                 "nome": nome_empresa,
-                "itens": itens_validos,
-                "mais_proximo": itens_validos[0]["vencimento"],
+                "id": itens[0]["empresa_id"],
+                "itens": itens,
+                "contagem": contagem,
+                "mais_proximo": next((it["vencimento"] for it in itens if it["vencimento"]), date.max),
             })
 
         if ordenar == "nome":
@@ -1556,6 +1586,8 @@ def vencimentos_list(request):
         aba_selecionada = abas[0]["chave"] if abas else ""
     for aba in abas:
         aba["ativa"] = aba["chave"] == aba_selecionada
+        for empresa in aba["empresas"]:
+            empresa["aberta"] = str(empresa["id"]) == request.GET.get("empresa")
 
     return render(request, "core/vencimentos_list.html", {
         "abas": abas,
@@ -1580,14 +1612,51 @@ def atualizar_vencimento_cumprimento(request, pk):
         try:
             nova_data = datetime.strptime(valor, "%Y-%m-%d").date()
             cumprimento.data_vencimento_manual = nova_data
-            cumprimento.save()
-            messages.success(request, "Data de vencimento atualizada.")
+            concluida = request.POST.get("concluida") == "on"
+            from django.utils import timezone
+
+            cumprimento.cumprido = concluida
+            cumprimento.data_cumprimento = timezone.localdate() if concluida else None
+            cumprimento.save(update_fields=[
+                "data_vencimento_manual", "cumprido", "data_cumprimento"
+            ])
+            messages.success(request, "Vencimento e status atualizados.")
         except (TypeError, ValueError):
             messages.error(request, "Data inválida.")
 
     aba = request.POST.get("aba", "")
+    empresa_id = request.POST.get("empresa_id", "")
     if aba:
-        return redirect(f"/painel/vencimentos/?aba={aba}")
+        destino = f"/painel/vencimentos/?aba={aba}"
+        if empresa_id:
+            destino += f"&empresa={empresa_id}"
+        return redirect(destino)
+    return redirect(request.META.get("HTTP_REFERER") or "vencimentos_list")
+
+@requer_edicao
+def atualizar_status_cumprimento(request, pk):
+    cumprimento = get_object_or_404(CumprimentoObrigacao, pk=pk)
+
+    if request.method == "POST":
+        concluida = request.POST.get("concluida") == "on"
+        from django.utils import timezone
+
+        cumprimento.cumprido = concluida
+        cumprimento.data_cumprimento = timezone.localdate() if concluida else None
+        cumprimento.save(update_fields=["cumprido", "data_cumprimento"])
+        messages.success(
+            request,
+            "Obrigação marcada como concluída." if concluida
+            else "Obrigação reaberta como pendente."
+        )
+
+    aba = request.POST.get("aba", "")
+    empresa_id = request.POST.get("empresa_id", "")
+    if aba:
+        destino = f"/painel/vencimentos/?aba={aba}"
+        if empresa_id:
+            destino += f"&empresa={empresa_id}"
+        return redirect(destino)
     return redirect(request.META.get("HTTP_REFERER") or "vencimentos_list")
 
 @login_required

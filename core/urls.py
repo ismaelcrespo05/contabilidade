@@ -81,4 +81,5 @@ urlpatterns = [
     path("painel/notificacoes/marcar-todas/", views.marcar_todas_lidas, name="marcar_todas_lidas"),
     
     path("painel/cumprimentos/<int:pk>/vencimento/", views.atualizar_vencimento_cumprimento, name="atualizar_vencimento_cumprimento"),
+    path("painel/cumprimentos/<int:pk>/status/", views.atualizar_status_cumprimento, name="atualizar_status_cumprimento"),
 ]

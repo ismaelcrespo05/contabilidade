@@ -2,8 +2,18 @@ from django import forms
 from .models import  Empresa, Competencia, ApuracaoImposto, Documento, PerfilUsuario, LancamentoContabil, Certificado, ConfiguracaoSistema
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
+import re
 
 class EmpresaForm(forms.ModelForm):
+
+    def clean_cnpj(self):
+        cnpj = self.cleaned_data.get("cnpj")
+        if not cnpj:
+            return None
+        digitos = re.sub(r"\D", "", cnpj)
+        if len(digitos) != 14:
+            raise forms.ValidationError("Informe um CNPJ com 14 dígitos.")
+        return f"{digitos[:2]}.{digitos[2:5]}.{digitos[5:8]}/{digitos[8:12]}-{digitos[12:]}"
 
     class Meta:
         model = Empresa

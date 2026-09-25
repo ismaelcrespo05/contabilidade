@@ -227,6 +227,14 @@ class ApuracaoImposto(models.Model):
 
     def __str__(self):
         return f"{self.imposto} - {self.competencia}"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["competencia", "imposto"],
+                name="competencia_imposto_unica"
+            )
+        ]
     
 class CumprimentoObrigacao(models.Model):
     """
@@ -236,14 +244,16 @@ class CumprimentoObrigacao(models.Model):
     3 = Em dia (verde), 2 = Risco de atraso (amarelo), 1 = Atrasada (vermelho).
     """
 
-    STATUS_EM_DIA = 3
+    STATUS_EM_DIA = 4
     STATUS_RISCO = 2
     STATUS_ATRASADA = 1
+    STATUS_CONCLUIDA = 3
 
     STATUS_CHOICES = [
         (STATUS_EM_DIA, "Em dia"),
         (STATUS_RISCO, "Risco de atraso"),
         (STATUS_ATRASADA, "Atrasada"),
+        (STATUS_CONCLUIDA, "Concluída"),
     ]
 
     competencia = models.ForeignKey(
@@ -317,11 +327,8 @@ class CumprimentoObrigacao(models.Model):
         return date(ano, mes, min(dia, ultimo_dia_do_mes))
 
     def status_calculado(self):
-        if self.status_manual:
-            return self.status_manual
-
         if self.cumprido:
-            return self.STATUS_EM_DIA
+            return self.STATUS_CONCLUIDA
 
         vencimento = self.data_vencimento_calculada()
         hoje = __import__("datetime").date.today()
@@ -329,7 +336,15 @@ class CumprimentoObrigacao(models.Model):
         if hoje > vencimento:
             return self.STATUS_ATRASADA
 
-        if (vencimento - hoje).days <= 5:
+        if self.status_manual in (
+            self.STATUS_EM_DIA,
+            self.STATUS_RISCO,
+            self.STATUS_ATRASADA,
+        ):
+            return self.status_manual
+
+        dias_alerta = ConfiguracaoSistema.obter().dias_alerta_obrigacao
+        if (vencimento - hoje).days <= dias_alerta:
             return self.STATUS_RISCO
 
         return self.STATUS_EM_DIA

@@ -50,8 +50,8 @@
                 {% for empresa in empresas %}
                     <tr>
                         <td>{{ empresa.razao_social }}</td>
-                        <td>{{ empresa.cnpj }}</td>
-                        <td>{{ empresa.tipo_empresa }}</td>
+                        <td>{{ empresa.cnpj|default:"Não informado" }}</td>
+                        <td>{{ empresa.tipo_empresa|default:"Não informado" }}</td>
                         <td>{{ empresa.regime_tributario }}</td>
                         <td class="acoes">
                             <a class="btn btn-secondary btn-sm"

@@ -20,13 +20,193 @@
             position: fixed;
             top: 0;
             left: 0;
-            width: 240px;
+            width: 256px;
             height: 100vh;
             overflow-y: auto;
             background: #27313a;
             color: #fff;
-            padding: 25px 0;
+            padding: 18px 10px;
             flex-shrink: 0;
+            transition: width .28s cubic-bezier(.4, 0, .2, 1), transform .28s cubic-bezier(.4, 0, .2, 1);
+            z-index: 10;
+        }
+
+        .menu-toggle {
+            position: fixed;
+            top: 17px;
+            left: 16px;
+            z-index: 30;
+            display: grid;
+            place-items: center;
+            width: 34px;
+            height: 34px;
+            border: 1px solid rgba(255,255,255,.18);
+            border-radius: 7px;
+            background: rgba(255,255,255,.08);
+            color: #fff;
+            font-size: 19px;
+            line-height: 1;
+            cursor: pointer;
+            transition: background .2s ease, transform .2s ease, color .2s ease;
+        }
+
+        .menu-toggle:hover {
+            background: rgba(255,255,255,.17);
+            transform: translateY(-1px);
+        }
+
+        body.menu-fechado .sidebar { width: 72px; }
+        body.menu-fechado .content { margin-left: 72px; }
+
+        .sidebar-header {
+            min-height: 54px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 10px 16px 52px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,.1);
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .brand-logo {
+            width: 34px;
+            height: 34px;
+            object-fit: cover;
+            object-position: center 18%;
+            border-radius: 6px;
+            background: #fff;
+            flex: 0 0 34px;
+        }
+
+        .brand-name {
+            color: #fff;
+            font-size: 17px;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+
+        .brand-subtitle {
+            display: block;
+            margin-top: 2px;
+            color: #8f9aa4;
+            font-size: 10px;
+            letter-spacing: .2px;
+        }
+
+        body.menu-fechado .sidebar-header {
+            padding-left: 42px;
+            padding-right: 0;
+        }
+
+        body.menu-fechado .brand-logo,
+        body.menu-fechado .brand-copy { display: none; }
+
+        body.menu-fechado .sidebar { overflow: visible; }
+
+        .nav-link,
+        .logout-button {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            min-height: 42px;
+            padding: 10px 12px;
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+            color: #cbd3da;
+            text-decoration: none;
+            font: inherit;
+            font-size: 14px;
+            text-align: left;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background .18s ease, color .18s ease;
+        }
+
+        .nav-link:hover,
+        .logout-button:hover,
+        .nav-link.ativo {
+            background: rgba(255,255,255,.1);
+            color: #fff;
+        }
+
+        .nav-icon {
+            display: grid;
+            place-items: center;
+            width: 20px;
+            height: 20px;
+            flex: 0 0 20px;
+        }
+
+        .nav-icon svg {
+            width: 18px;
+            height: 18px;
+            fill: none;
+            stroke: currentColor;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            stroke-width: 1.8;
+        }
+
+        .nav-label { overflow: hidden; text-overflow: ellipsis; }
+
+        body.menu-fechado .nav-link,
+        body.menu-fechado .logout-button {
+            justify-content: center;
+            padding: 10px 0;
+        }
+
+        body.menu-fechado .nav-label,
+        body.menu-fechado .grupo-titulo,
+        body.menu-fechado .notificacao-contador { display: none; }
+
+        body.menu-fechado .nav-link::after,
+        body.menu-fechado .logout-button::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: 62px;
+            top: 50%;
+            z-index: 40;
+            padding: 7px 9px;
+            border-radius: 6px;
+            background: #172027;
+            color: #fff;
+            font-size: 12px;
+            line-height: 1;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(-50%) translateX(-4px);
+            transition: opacity .15s ease, transform .15s ease;
+        }
+
+        body.menu-fechado .nav-link:hover::after,
+        body.menu-fechado .logout-button:hover::after {
+            opacity: 1;
+            transform: translateY(-50%) translateX(0);
+        }
+
+        @media (max-width: 800px) {
+            .sidebar { width: 270px; box-shadow: 10px 0 30px rgba(0,0,0,.18); }
+            body.menu-fechado .sidebar {
+                width: 270px;
+                transform: translateX(-100%);
+            }
+            body.menu-fechado .content,
+            .content { margin-left: 0; padding: 70px 18px 25px; }
+            body.menu-fechado .sidebar-header { padding-left: 52px; }
+            body.menu-fechado .brand-logo,
+            body.menu-fechado .brand-copy,
+            body.menu-fechado .nav-label,
+            body.menu-fechado .grupo-titulo,
+            body.menu-fechado .notificacao-contador { display: flex; }
+            body.menu-fechado .nav-link,
+            body.menu-fechado .logout-button { justify-content: flex-start; padding: 10px 12px; }
+            body.menu-fechado .nav-link::after,
+            body.menu-fechado .logout-button::after { display: none; }
         }
 
         .sidebar::-webkit-scrollbar { width: 7px; }
@@ -36,30 +216,22 @@
             border-radius: 4px;
         }
 
-        .sidebar h2 {
-            padding: 0 22px 20px;
-            letter-spacing: 2px;
-            font-size: 22px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            margin-bottom: 15px;
-        }
+        .icon-sprite { display: none; }
 
-        .sidebar a {
-            display: block;
-            padding: 10px 22px;
-            color: #cbd3da;
-            text-decoration: none;
-            font-size: 15px;
-        }
-
-        .sidebar a:hover,
-        .sidebar a.ativo {
-            background: rgba(255,255,255,0.08);
+        .notificacao-contador {
+            min-width: 18px;
+            margin-left: 2px;
+            padding: 2px 5px;
+            border-radius: 10px;
+            background: #b00020;
             color: #fff;
+            font-size: 10px;
+            line-height: 1.1;
+            text-align: center;
         }
 
         .sidebar .grupo-titulo {
-            padding: 18px 22px 6px;
+            padding: 18px 12px 6px;
             font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 1px;
@@ -67,9 +239,10 @@
         }
 
         .content {
-            margin-left: 240px;
+            margin-left: 256px;
             padding: 35px 40px;
             max-width: 1100px;
+            transition: margin-left .28s cubic-bezier(.4, 0, .2, 1);
         }
 
         .content h1 { color: #27313a; margin-bottom: 22px; }
@@ -196,45 +369,65 @@ function verificarNotificacoes() {
         .catch(() => {});
 }
 
-verificarNotificacoes();
-setInterval(verificarNotificacoes, 30000);
+window.addEventListener('DOMContentLoaded', function () {
+    verificarNotificacoes();
+    setInterval(verificarNotificacoes, 30000);
+});
 </script>
 <body>
 
-    <nav class="sidebar">
-        <h2>TRINUS</h2>
+    <button class="menu-toggle" type="button" aria-label="Fechar menu" aria-expanded="true" onclick="alternarMenu()">☰</button>
 
-        <a href="{% url 'painel_dashboard' %}">Dashboard</a>
-        <a href="{% url 'empresa_list' %}">Empresas</a>
-        <a href="{% url 'vencimentos_list' %}">Vencimentos</a>
-        <a href="{% url 'documento_list' %}">Documentos</a>
-        <a href="{% url 'lancamento_list' %}">Lançamentos</a>
-        <a href="{% url 'certificado_list' %}">Certificados</a>
+    <svg class="icon-sprite" aria-hidden="true">
+        <symbol id="icon-dashboard" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+        <symbol id="icon-empresa" viewBox="0 0 24 24"><path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M2 21h20M8 7h2M8 11h2M8 15h2M19 21v-8a2 2 0 0 0-2-2h-1"/></symbol>
+        <symbol id="icon-calendario" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01"/></symbol>
+        <symbol id="icon-documento" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M14 3v5h5M8 13h8M8 17h6"/></symbol>
+        <symbol id="icon-lancamento" viewBox="0 0 24 24"><path d="M4 19V5M4 19h17M8 16v-5M12 16V7M16 16v-3M20 16V4"/></symbol>
+        <symbol id="icon-certificado" viewBox="0 0 24 24"><circle cx="12" cy="9" r="6"/><path d="m8 14-1 7 5-3 5 3-1-7M9 9l2 2 4-4"/></symbol>
+        <symbol id="icon-catalogo" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h14v17H6a2 2 0 0 1-2-2V5ZM4 5v13a2 2 0 0 0 2 2M8 7h8M8 11h8"/></symbol>
+        <symbol id="icon-notificacao" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></symbol>
+        <symbol id="icon-usuario" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+        <symbol id="icon-config" viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="m19.4 15 .1.1a2 2 0 1 1-2.8 2.8l-.1-.1a2 2 0 0 0-3.4 1.4V19a2 2 0 1 1-4 0v-.2a2 2 0 0 0-3.4-1.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A2 2 0 0 0 3.6 11H3.5a2 2 0 1 1 0-4h.2a2 2 0 0 0 1.4-3.4l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A2 2 0 0 0 11 2.2V2a2 2 0 1 1 4 0v.2a2 2 0 0 0 3.4 1.4l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A2 2 0 0 0 20.6 10h.2a2 2 0 1 1 0 4h-.2a2 2 0 0 0-1.2 1Z"/></symbol>
+        <symbol id="icon-site" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+        <symbol id="icon-sair" viewBox="0 0 24 24"><path d="M10 17l5-5-5-5M15 12H3M21 19V5a2 2 0 0 0-2-2h-6"/></symbol>
+    </svg>
+
+    <nav class="sidebar" aria-label="Navegação principal">
+        <div class="sidebar-header">
+            <img src="{% static 'core/logo.png' %}" alt="Logo TRINUS" class="brand-logo">
+            <div class="brand-copy">
+                <div class="brand-name">TRINUS</div>
+                <span class="brand-subtitle">Contábil &amp; Assessoria</span>
+            </div>
+        </div>
+
+        <a class="nav-link {% if request.resolver_match.url_name == 'painel_dashboard' %}ativo{% endif %}" data-tooltip="Dashboard" href="{% url 'painel_dashboard' %}"><span class="nav-icon"><svg><use href="#icon-dashboard"></use></svg></span><span class="nav-label">Dashboard</span></a>
+        <a class="nav-link {% if request.resolver_match.url_name == 'empresa_list' %}ativo{% endif %}" data-tooltip="Empresas" href="{% url 'empresa_list' %}"><span class="nav-icon"><svg><use href="#icon-empresa"></use></svg></span><span class="nav-label">Empresas</span></a>
+        <a class="nav-link {% if request.resolver_match.url_name == 'vencimentos_list' %}ativo{% endif %}" data-tooltip="Vencimentos" href="{% url 'vencimentos_list' %}"><span class="nav-icon"><svg><use href="#icon-calendario"></use></svg></span><span class="nav-label">Vencimentos</span></a>
+        <a class="nav-link {% if request.resolver_match.url_name == 'documento_list' or request.resolver_match.url_name == 'novo_documento' or request.resolver_match.url_name == 'revisar_documento' %}ativo{% endif %}" data-tooltip="Documentos" href="{% url 'documento_list' %}"><span class="nav-icon"><svg><use href="#icon-documento"></use></svg></span><span class="nav-label">Documentos</span></a>
+        <a class="nav-link {% if request.resolver_match.url_name == 'lancamento_list' or request.resolver_match.url_name == 'lancamento_detail' or request.resolver_match.url_name == 'editar_lancamento' %}ativo{% endif %}" data-tooltip="Lançamentos" href="{% url 'lancamento_list' %}"><span class="nav-icon"><svg><use href="#icon-lancamento"></use></svg></span><span class="nav-label">Lançamentos</span></a>
+        <a class="nav-link {% if request.resolver_match.url_name == 'certificado_list' or request.resolver_match.url_name == 'novo_certificado' or request.resolver_match.url_name == 'editar_certificado' %}ativo{% endif %}" data-tooltip="Certificados" href="{% url 'certificado_list' %}"><span class="nav-icon"><svg><use href="#icon-certificado"></use></svg></span><span class="nav-label">Certificados</span></a>
+
         <div class="grupo-titulo">Catálogos</div>
-        <a href="{% url 'catalogo_list' slug='tipos-empresa' %}">Tipos de Empresa</a>
-        <a href="{% url 'catalogo_list' slug='regimes' %}">Regimes Tributários</a>
-        <a href="{% url 'catalogo_list' slug='impostos' %}">Impostos</a>
-        <a href="{% url 'catalogo_list' slug='cnae' %}">CNAE</a>
-        <a href="{% url 'catalogo_list' slug='obrigacoes' %}">Obrigações Acessórias</a>
-        <a href="{% url 'catalogo_list' slug='fornecedores' %}">Fornecedores</a>
-        <a href="{% url 'notificacoes_list' %}" style="position:relative;">
-    🔔 Notificações
-    <span id="contador-notificacoes" style="background:#b00020; color:#fff; border-radius:10px; padding:1px 7px; font-size:11px; display:none; margin-left:6px;"></span>
-</a>
+        <a class="nav-link {% if request.resolver_match.kwargs.slug == 'tipos-empresa' %}ativo{% endif %}" data-tooltip="Tipos de Empresa" href="{% url 'catalogo_list' slug='tipos-empresa' %}"><span class="nav-icon"><svg><use href="#icon-catalogo"></use></svg></span><span class="nav-label">Tipos de Empresa</span></a>
+        <a class="nav-link {% if request.resolver_match.kwargs.slug == 'regimes' %}ativo{% endif %}" data-tooltip="Regimes Tributários" href="{% url 'catalogo_list' slug='regimes' %}"><span class="nav-icon"><svg><use href="#icon-catalogo"></use></svg></span><span class="nav-label">Regimes Tributários</span></a>
+        <a class="nav-link {% if request.resolver_match.kwargs.slug == 'impostos' %}ativo{% endif %}" data-tooltip="Impostos" href="{% url 'catalogo_list' slug='impostos' %}"><span class="nav-icon"><svg><use href="#icon-catalogo"></use></svg></span><span class="nav-label">Impostos</span></a>
+        <a class="nav-link {% if request.resolver_match.kwargs.slug == 'cnae' %}ativo{% endif %}" data-tooltip="CNAE" href="{% url 'catalogo_list' slug='cnae' %}"><span class="nav-icon"><svg><use href="#icon-catalogo"></use></svg></span><span class="nav-label">CNAE</span></a>
+        <a class="nav-link {% if request.resolver_match.kwargs.slug == 'obrigacoes' %}ativo{% endif %}" data-tooltip="Obrigações Acessórias" href="{% url 'catalogo_list' slug='obrigacoes' %}"><span class="nav-icon"><svg><use href="#icon-catalogo"></use></svg></span><span class="nav-label">Obrigações Acessórias</span></a>
+        <a class="nav-link {% if request.resolver_match.kwargs.slug == 'fornecedores' %}ativo{% endif %}" data-tooltip="Fornecedores" href="{% url 'catalogo_list' slug='fornecedores' %}"><span class="nav-icon"><svg><use href="#icon-catalogo"></use></svg></span><span class="nav-label">Fornecedores</span></a>
 
-                <div class="grupo-titulo">Outros</div>
+        <a class="nav-link {% if request.resolver_match.url_name == 'notificacoes_list' %}ativo{% endif %}" data-tooltip="Notificações" href="{% url 'notificacoes_list' %}"><span class="nav-icon"><svg><use href="#icon-notificacao"></use></svg></span><span class="nav-label">Notificações <span id="contador-notificacoes" class="notificacao-contador"></span></span></a>
 
+        <div class="grupo-titulo">Outros</div>
         {% if request.user.perfil.papel == "ADMIN" %}
-            <a href="{% url 'usuario_list' %}">Usuários</a>
-            <a href="{% url 'configuracao_sistema' %}">Configurações</a>
-        {% endif %}        
-                
-        <a href="{% url 'inicio' %}">Site</a>
+            <a class="nav-link {% if request.resolver_match.url_name == 'usuario_list' or request.resolver_match.url_name == 'novo_usuario' or request.resolver_match.url_name == 'editar_usuario' %}ativo{% endif %}" data-tooltip="Usuários" href="{% url 'usuario_list' %}"><span class="nav-icon"><svg><use href="#icon-usuario"></use></svg></span><span class="nav-label">Usuários</span></a>
+            <a class="nav-link {% if request.resolver_match.url_name == 'configuracao_sistema' %}ativo{% endif %}" data-tooltip="Configurações" href="{% url 'configuracao_sistema' %}"><span class="nav-icon"><svg><use href="#icon-config"></use></svg></span><span class="nav-label">Configurações</span></a>
+        {% endif %}
+        <a class="nav-link" data-tooltip="Site" href="{% url 'inicio' %}"><span class="nav-icon"><svg><use href="#icon-site"></use></svg></span><span class="nav-label">Site</span></a>
         <form method="POST" action="{% url 'logout' %}" style="margin:0;">
             {% csrf_token %}
-            <button type="submit" style="all:unset; display:block; padding:10px 22px; color:#cbd3da; cursor:pointer; font-size:15px; width:100%; text-align:left;">
-                Sair
-            </button>
+            <button class="logout-button" type="submit" data-tooltip="Sair"><span class="nav-icon"><svg><use href="#icon-sair"></use></svg></span><span class="nav-label">Sair</span></button>
         </form>
     </nav>
     
@@ -254,4 +447,21 @@ setInterval(verificarNotificacoes, 30000);
     </main>
 
 </body>
+<script>
+function alternarMenu() {
+    const fechado = document.body.classList.toggle('menu-fechado');
+    const botao = document.querySelector('.menu-toggle');
+    botao.setAttribute('aria-expanded', String(!fechado));
+    botao.setAttribute('aria-label', fechado ? 'Abrir menu' : 'Fechar menu');
+    botao.textContent = fechado ? '›' : '☰';
+    localStorage.setItem('trinus_menu_fechado', fechado ? '1' : '0');
+}
+if (localStorage.getItem('trinus_menu_fechado') === '1') {
+    document.body.classList.add('menu-fechado');
+    const botao = document.querySelector('.menu-toggle');
+    botao.setAttribute('aria-expanded', 'false');
+    botao.setAttribute('aria-label', 'Abrir menu');
+    botao.textContent = '›';
+}
+</script>
 </html>
