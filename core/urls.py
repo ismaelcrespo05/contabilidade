@@ -43,6 +43,7 @@ urlpatterns = [
     # Documentos
     path("painel/documentos/", views.documento_list, name="documento_list"),
     path("painel/documentos/novo/", views.novo_documento, name="novo_documento"),
+    path("painel/documentos/excluir-selecionados/", views.excluir_documentos_selecionados, name="excluir_documentos_selecionados"),
     path("painel/documentos/<int:pk>/revisar/", views.revisar_documento, name="revisar_documento"),
     
     # Usuários

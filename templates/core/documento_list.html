@@ -1,4 +1,5 @@
 {% extends "core/panel_base.html" %}
+{% load core_extras %}
 
 {% block title %}Documentos{% endblock %}
 
@@ -10,51 +11,188 @@
     </div>
 
     <div class="card">
-        <table>
-            <thead>
-                <tr>
-                    <th>Número</th>
-                    <th>Emitente</th>
-                    <th>Destinatário</th>
-                    <th>Valor</th>
-                    <th>Empresa vinculada</th>
-                    <th>Revisado</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for documento in documentos %}
+        <form id="form-documentos" method="POST" action="{% url 'excluir_documentos_selecionados' %}">
+            {% csrf_token %}
+            <table id="tabla-documentos">
+                <thead>
                     <tr>
-                        <td>{{ documento.numero_documento|default:"—" }}</td>
-                        <td>{{ documento.cnpj_emitente|default:"—" }}</td>
-                        <td>{{ documento.cnpj_destinatario|default:"—" }}</td>
-                        <td>{% if documento.valor_total %}R$ {{ documento.valor_total }}{% else %}—{% endif %}</td>
-                        <td>
-                            {% if documento.empresa %}
-                                {{ documento.empresa.razao_social }}
-                                <span style="color:#777; font-size:12px;">({{ documento.papel_empresa }})</span>
-                            {% else %}
-                                <span style="color:#b00020;">Não vinculado</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if documento.revisado %}
-                                <span class="status-pill status-PAGO">Sim</span>
-                            {% else %}
-                                <span class="status-pill status-PENDENTE">Não</span>
-                            {% endif %}
-                        </td>
-                        <td class="acoes">
-                            <a class="btn btn-secondary btn-sm" href="{% url 'revisar_documento' pk=documento.pk %}">
-                                Revisar
-                            </a>
-                        </td>
+                        {% if request.user|pode_excluir %}
+                            <th class="col-seleccion" aria-label="Selección">
+                                <input id="seleccionar-todos-documentos" type="checkbox" aria-label="Seleccionar todos los documentos" hidden>
+                            </th>
+                        {% endif %}
+                        <th>Número</th>
+                        <th>Emitente</th>
+                        <th>Destinatário</th>
+                        <th>Valor</th>
+                        <th>Empresa vinculada</th>
+                        <th>Revisado</th>
                     </tr>
-                {% empty %}
-                    <tr><td colspan="7">Nenhum documento importado ainda.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    {% for documento in documentos %}
+                        <tr class="documento-fila" tabindex="0" data-lancamentos="{{ documento.lancamentos_count }}">
+                            {% if request.user|pode_excluir %}
+                                <td class="celda-seleccion">
+                                    <input type="checkbox" name="selecionados" value="{{ documento.pk }}" class="checkbox-documento" aria-label="Seleccionar documento {{ documento.numero_documento }}" hidden>
+                                </td>
+                            {% endif %}
+                            <td>
+                                {{ documento.numero_documento|default:"—" }}
+                            </td>
+                            <td>{{ documento.cnpj_emitente|default:"—" }}</td>
+                            <td>{{ documento.cnpj_destinatario|default:"—" }}</td>
+                            <td>{% if documento.valor_total %}R$ {{ documento.valor_total }}{% else %}—{% endif %}</td>
+                            <td>
+                                {% if documento.empresa %}
+                                    {{ documento.empresa.razao_social }}
+                                    <span style="color:#777; font-size:12px;">({{ documento.papel_empresa }})</span>
+                                {% else %}
+                                    <span style="color:#b00020;">Não vinculado</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if documento.revisado %}
+                                    <span class="status-pill status-PAGO">Sim</span>
+                                {% else %}
+                                    <span class="status-pill status-PENDENTE">Não</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% if request.user|pode_editar or request.user|pode_excluir %}
+                            <tr class="acciones-fila">
+                                <td colspan="{% if request.user|pode_excluir %}7{% else %}6{% endif %}">
+                                    <div class="acciones-documento" aria-label="Acciones del documento">
+                                    {% if request.user|pode_editar %}
+                                        <a class="btn btn-secondary btn-sm" href="{% url 'revisar_documento' pk=documento.pk %}">Editar</a>
+                                    {% endif %}
+                                    {% if request.user|pode_excluir %}
+                                        <button type="button" class="btn btn-danger btn-sm js-eliminar-documento">Eliminar</button>
+                                    {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    {% empty %}
+                        <tr><td colspan="{% if request.user|pode_excluir %}7{% else %}6{% endif %}">Nenhum documento importado ainda.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </form>
     </div>
+
+    <style>
+        #form-documentos [hidden] { display:none !important; }
+        .col-seleccion, .celda-seleccion { width:36px; padding-left:12px; padding-right:4px; }
+        .documento-fila { cursor:pointer; transition:background-color .2s ease; }
+        .documento-fila:hover, .documento-fila.is-activa { background-color:#f5f6f7; }
+        .documento-fila.is-seleccionada { background-color:#e9ecef; }
+        .documento-fila:focus-visible { outline:2px solid #657786; outline-offset:-2px; }
+        .acciones-fila { display:none; }
+        .acciones-fila.is-visible { display:table-row; }
+        .acciones-fila td { padding:2px 12px 12px; border-top:0; }
+        .acciones-documento { display:flex; justify-content:flex-end; align-items:center; gap:8px; flex-wrap:wrap; }
+        .acciones-fila.is-visible .acciones-documento { animation:acciones-aparecen .22s ease both; }
+        .acciones-documento .btn { opacity:.72; transition:opacity .18s ease, transform .18s ease; }
+        .acciones-documento .btn:hover, .acciones-documento .btn:focus-visible { opacity:1; transform:translateY(-1px); }
+        @keyframes acciones-aparecen {
+            from { opacity:0; transform:translateY(-4px); }
+            to { opacity:1; transform:translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .documento-fila, .acciones-documento .btn { transition:none; }
+            .acciones-fila.is-visible .acciones-documento { animation:none; }
+        }
+    </style>
+
+    <script>
+        (() => {
+            const form = document.getElementById("form-documentos");
+            const tabla = document.getElementById("tabla-documentos");
+            if (!form || !tabla) return;
+
+            const filas = [...tabla.querySelectorAll(".documento-fila")];
+            const seleccionarTodos = document.getElementById("seleccionar-todos-documentos");
+            let filaActiva = null;
+
+            const seleccionados = () => [...form.querySelectorAll(".checkbox-documento:checked")];
+
+            const actualizarInterfaz = () => {
+                const checks = seleccionados();
+                const idsSeleccionados = new Set(checks.map(check => check.value));
+
+                filas.forEach(fila => {
+                    const check = fila.querySelector(".checkbox-documento");
+                    fila.classList.toggle("is-seleccionada", check && idsSeleccionados.has(check.value));
+                    const filaAcciones = fila.nextElementSibling;
+                    if (!filaAcciones || !filaAcciones.classList.contains("acciones-fila")) return;
+                    filaAcciones.classList.toggle("is-visible", fila === filaActiva);
+                });
+                if (seleccionarTodos) {
+                    seleccionarTodos.hidden = checks.length === 0;
+                    seleccionarTodos.checked = filas.length > 0 && checks.length === filas.length;
+                }
+            };
+
+            const confirmarEliminacion = checks => {
+                if (!checks.length) return false;
+                const filasBorrado = checks.map(check => check.closest(".documento-fila"));
+                const hayLanzamientos = filasBorrado.some(fila => Number(fila.dataset.lancamentos) > 0);
+                let mensaje = checks.length === 1
+                    ? "¿Eliminar este documento? Esta acción no se puede deshacer."
+                    : `¿Eliminar los ${checks.length} documentos seleccionados? Esta acción no se puede deshacer.`;
+                if (hayLanzamientos) {
+                    mensaje += " Hay lanzamientos contables asociados: se conservarán, pero quedarán desvinculados del documento.";
+                }
+                return window.confirm(mensaje);
+            };
+
+            filas.forEach(fila => {
+                fila.addEventListener("click", evento => {
+                    if (evento.target.closest("button, a, input, label")) return;
+                    filaActiva = fila;
+                    const check = fila.querySelector(".checkbox-documento");
+                    if (check) check.checked = !check.checked;
+                    actualizarInterfaz();
+                });
+                fila.addEventListener("keydown", evento => {
+                    if ((evento.key === "Enter" || evento.key === " ") && evento.target === fila) {
+                        evento.preventDefault();
+                        filaActiva = fila;
+                        const check = fila.querySelector(".checkbox-documento");
+                        if (check) check.checked = !check.checked;
+                        actualizarInterfaz();
+                    }
+                });
+            });
+
+            form.addEventListener("change", evento => {
+                if (evento.target === seleccionarTodos) {
+                    form.querySelectorAll(".checkbox-documento").forEach(check => {
+                        check.checked = seleccionarTodos.checked;
+                    });
+                    actualizarInterfaz();
+                    return;
+                }
+                if (!evento.target.matches(".checkbox-documento")) return;
+                filaActiva = evento.target.closest(".documento-fila");
+                actualizarInterfaz();
+            });
+
+            form.addEventListener("click", evento => {
+                const botonEliminar = evento.target.closest(".js-eliminar-documento");
+                if (botonEliminar) {
+                    const filaActiva = botonEliminar.closest(".acciones-fila").previousElementSibling;
+                    const checks = seleccionados();
+                    if (!checks.length) {
+                        const checkActivo = filaActiva.querySelector(".checkbox-documento");
+                        if (checkActivo) checkActivo.checked = true;
+                    }
+                    if (confirmarEliminacion(seleccionados())) form.submit();
+                }
+            });
+
+        })();
+    </script>
 
 {% endblock %}

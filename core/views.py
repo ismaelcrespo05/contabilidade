@@ -5,6 +5,7 @@ from django.views.generic import ListView, DeleteView
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Count
 from .forms import EmpresaForm, CompetenciaForm, ApuracaoImpostoForm, DocumentoForm, EditarUsuarioForm, ImportarRotinasForm, NovoUsuarioForm, LancamentoContabilForm, CertificadoForm, CertificadoRapidoFormSet,  ConfiguracaoSistemaForm
 from .models import (
     TipoEmpresa, RegimeTributario, Imposto, CNAE, ObrigacaoAcessoria,
@@ -675,8 +676,32 @@ def confirmar_comprovante(request):
 # ---------------------------------------------------------------------
 @login_required
 def documento_list(request):
-    documentos = Documento.objects.select_related("empresa").order_by("-data_upload")
+    documentos = (
+        Documento.objects.select_related("empresa")
+        .annotate(lancamentos_count=Count("lancamentos"))
+        .order_by("-data_upload")
+    )
     return render(request, "core/documento_list.html", {"documentos": documentos})
+
+
+@requer_exclusao
+def excluir_documentos_selecionados(request):
+    """Exclui os documentos marcados na lista e remove seus arquivos."""
+    if request.method == "POST":
+        documentos = list(Documento.objects.filter(pk__in=request.POST.getlist("selecionados")))
+        total = len(documentos)
+
+        Documento.objects.filter(pk__in=[documento.pk for documento in documentos]).delete()
+        for documento in documentos:
+            if documento.arquivo:
+                documento.arquivo.delete(save=False)
+
+        if total:
+            messages.success(request, f"{total} documento(s) excluído(s).")
+        else:
+            messages.info(request, "Nenhum documento selecionado.")
+
+    return redirect("documento_list")
 
 
 @requer_edicao
